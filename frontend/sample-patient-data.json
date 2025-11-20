@@ -1,0 +1,115 @@
+{
+  "case_id": "TB-2025-0012",
+  "demographics": {
+    "name": "John Doe",
+    "age": 55,
+    "sex": "M"
+  },
+  "clinical_summary": {
+    "etiology": "HBV-related cirrhosis",
+    "symptoms": [
+      "Fatigue",
+      "Abdominal pain",
+      "Weight loss"
+    ],
+    "comorbidities": [
+      "Type 2 Diabetes",
+      "Hypertension"
+    ]
+  },
+  "lab_data": {
+    "baseline": {
+      "ALT": 85.5,
+      "AST": 92.3,
+      "Tbil": 2.1,
+      "Alb": 3.5,
+      "PT": 14.2,
+      "INR": 1.3
+    },
+    "2024-01-15": {
+      "ALT": 75.0,
+      "AST": 80.0,
+      "Tbil": 1.8,
+      "Alb": 3.6,
+      "PT": 13.8,
+      "INR": 1.2
+    },
+    "2024-02-20": {
+      "ALT": 65.0,
+      "AST": 72.0,
+      "Tbil": 1.5,
+      "Alb": 3.7,
+      "PT": 13.5,
+      "INR": 1.1
+    },
+    "2024-03-25": {
+      "ALT": 58.0,
+      "AST": 68.0,
+      "Tbil": 1.3,
+      "Alb": 3.8,
+      "PT": 13.2,
+      "INR": 1.0
+    },
+    "derived_scores": {
+      "CTP": "B",
+      "MELD_Na": 12,
+      "AFP": 450.5
+    }
+  },
+  "imaging": {
+    "modality": "CT with contrast",
+    "findings": [
+      {
+        "date": "2024-01-10",
+        "lesion_count": 2,
+        "largest_size_cm": 5.2,
+        "segment": 4,
+        "LIRADS": 5,
+        "PVTT": true,
+        "METS": "None",
+        "ECOG": 1
+      },
+      {
+        "date": "2024-02-15",
+        "lesion_count": 2,
+        "largest_size_cm": 4.8,
+        "segment": 4,
+        "LIRADS": 5,
+        "PVTT": false,
+        "METS": "None",
+        "ECOG": 1
+      }
+    ],
+    "follow_up_findings": {
+      "2024-03-20": "Stable disease, slight reduction in lesion size"
+    },
+    "attachments": [
+      "CT_report_2024-01-10.pdf",
+      "CT_images_2024-01-10.zip"
+    ]
+  },
+  "histopathology": {
+    "biopsy": "Core needle biopsy performed on 2024-01-12",
+    "fibrosis_stage": 4,
+    "comments": "Confirmed hepatocellular carcinoma, moderately differentiated"
+  },
+  "treatment_history": {
+    "previous": [
+      "TACE",
+      "RFA"
+    ],
+    "current": "Atezolizumab + Bevacizumab",
+    "response_summary": "Patient showed partial response after 3 cycles. AFP levels decreased from 450 to 320. Imaging shows stable disease with slight reduction in lesion size."
+  },
+  "tumor_board_notes": {
+    "discussion": "Patient presented with multifocal HCC in segment 4. PVTT was initially present but resolved after TACE. Patient is now on systemic therapy with good response. Performance status is good (ECOG 1).",
+    "recommendation": "Continue current systemic therapy. Re-evaluate after 6 cycles. Consider surgical resection if complete response achieved and liver function improves.",
+    "board_members": [
+      "Dr. Smith - Hepatologist",
+      "Dr. Johnson - Oncologist",
+      "Dr. Williams - Surgeon",
+      "Dr. Brown - Radiologist"
+    ]
+  }
+}
+
