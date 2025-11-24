@@ -156,15 +156,17 @@ export default function PatientForm({ patient, onSubmit, loading }) {
           if (intFields.includes(key)) {
             const num = typeof val === 'string' ? parseInt(val, 10) : val
             if (!isNaN(num) && num !== '') {
-              cleanedVal = num
+              cleaned[key] = num
             }
+            continue
           }
           // Handle known float fields
           else if (floatFields.includes(key)) {
             const num = typeof val === 'string' ? parseFloat(val) : val
             if (!isNaN(num) && num !== '') {
-              cleanedVal = num
+              cleaned[key] = num
             }
+            continue
           }
           // Handle arrays - recursively clean
           else if (Array.isArray(val)) {
