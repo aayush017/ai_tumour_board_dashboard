@@ -1,16 +1,20 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 from datetime import datetime
 import os
-import json
 
-from openai import OpenAI, OpenAIError
+from openai import OpenAI
 
 from database import SessionLocal, engine
 from models import PatientEntity, Base
 import schemas
+from services.specialist_agents import (
+    SpecialistAgentError,
+    SpecialistModelError,
+    generate_specialist_summary as run_specialist_agent,
+)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -63,19 +67,6 @@ def build_patient_context(patient: PatientEntity) -> Dict[str, Any]:
         "tumor_board_notes",
     ]
     return {key: serialized.get(key) for key in allowed_keys if serialized.get(key) is not None}
-
-def parse_ai_response(raw_text: str) -> Dict[str, Any]:
-    try:
-        return json.loads(raw_text)
-    except json.JSONDecodeError:
-        return {"diagnosis": raw_text.strip(), "plan_of_action": []}
-
-def normalize_plan(plan_data) -> List[str]:
-    if isinstance(plan_data, list):
-        return [str(item).strip() for item in plan_data if str(item).strip()]
-    if isinstance(plan_data, str):
-        return [plan_data.strip()] if plan_data.strip() else []
-    return []
 
 @app.get("/")
 def read_root():
@@ -249,59 +240,17 @@ def generate_specialist_summary(
     client = get_openai_client()
     model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-    system_prompt = (
-        f"You are a board-certified {specialist.value} contributing to a liver tumor board. "
-        "Offer a cautious, evidence-based assessment."
-    )
-    user_prompt = (
-        "You are reviewing the following patient data. "
-        "Produce JSON with keys: diagnosis (string), suggestive_plan (array of strings), "
-        "confidence (string, optional), caveats (string, optional). "
-        "Keep recommendations actionable but concise.\n\n"
-        f"Patient data:\n{json.dumps(patient_context, indent=2)}"
-    )
-
     try:
-        response = client.chat.completions.create(
-            model=model_name,
-            temperature=0.2,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+        return run_specialist_agent(
+            specialist=specialist,
+            patient_context=patient_context,
+            client=client,
+            model_name=model_name,
         )
-    except OpenAIError as exc:
-        raise HTTPException(status_code=502, detail=f"OpenAI API error: {exc}") from exc
-
-    content = ""
-    if response.choices:
-        content = response.choices[0].message.content or ""
-
-    parsed = parse_ai_response(content)
-
-    plan_data = (
-        parsed.get("suggestive_plan")
-        or parsed.get("plan_of_action")
-        or parsed.get("plan")
-        or parsed.get("recommendations")
-    )
-    plan = normalize_plan(plan_data)
-    if not plan:
-        plan = ["Review with multidisciplinary tumor board for individualized planning."]
-
-    diagnosis = parsed.get("diagnosis") or parsed.get("assessment") or "No diagnosis generated."
-    confidence = parsed.get("confidence") or parsed.get("confidence_level")
-    caveats = parsed.get("caveats") or parsed.get("risks") or parsed.get("considerations")
-
-    return schemas.SpecialistSummaryResponse(
-        specialist=specialist,
-        diagnosis=diagnosis.strip(),
-        suggestive_plan=plan,
-        confidence=confidence.strip() if isinstance(confidence, str) else confidence,
-        caveats=caveats.strip() if isinstance(caveats, str) else caveats,
-        source_model=model_name,
-        generated_at=datetime.utcnow(),
-    )
+    except SpecialistModelError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except SpecialistAgentError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 if __name__ == "__main__":
     import uvicorn
