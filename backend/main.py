@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Dict, Any
 from datetime import datetime
 import os
@@ -18,6 +19,21 @@ from services.specialist_agents import (
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+def ensure_ground_truth_column():
+    """Add the ground_truth column if the existing SQLite table predates this schema."""
+    try:
+        with engine.connect() as connection:
+            columns = {
+                row[1]
+                for row in connection.execute(text("PRAGMA table_info(patient_entities);"))
+            }
+            if "ground_truth" not in columns:
+                connection.execute(text("ALTER TABLE patient_entities ADD COLUMN ground_truth JSON"))
+    except Exception as exc:
+        print(f"[warn] Unable to verify/alter patient_entities table: {exc}")
+
+ensure_ground_truth_column()
 
 app = FastAPI(title="Patient Entity Management System", version="1.0.0")
 
@@ -59,12 +75,13 @@ def build_patient_context(patient: PatientEntity) -> Dict[str, Any]:
     allowed_keys = [
         "case_id",
         "demographics",
-        "clinical_summary",
+        "clinical",
         "lab_data",
-        "imaging",
-        "histopathology",
+        "radiology",
+        "pathology",
         "treatment_history",
-        "tumor_board_notes",
+        "tumor_board",
+        "ground_truth",
     ]
     return {key: serialized.get(key) for key in allowed_keys if serialized.get(key) is not None}
 
@@ -138,31 +155,24 @@ def get_lab_timeline(case_id: str, db: Session = Depends(get_db)):
         return {"timeline": []}
     
     lab_data = patient.lab_data
-
-    def is_date_string(value: str) -> bool:
-        try:
-            # Try multiple common formats; fall back to False on failure
-            from datetime import datetime as _dt
-            for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d", "%d/%m/%Y", "%Y-%m", "%Y/%m"):
-                try:
-                    _dt.strptime(value, fmt)
-                    return True
-                except Exception:
-                    pass
-            # ISO-like
-            _dt.fromisoformat(value)  # may raise
-            return True
-        except Exception:
-            return False
-
     entries = []
 
-    # Baseline first if present
     baseline = lab_data.get("baseline")
     if isinstance(baseline, dict):
         entries.append({"date": "baseline", "data": baseline})
 
-    # Flatten follow_up structures if present
+    # Primary time-series structure
+    time_series = lab_data.get("time_series")
+    if isinstance(time_series, list):
+        for item in time_series:
+            if not isinstance(item, dict):
+                continue
+            date_value = item.get("date")
+            data = {k: v for k, v in item.items() if k != "date" and v is not None}
+            if date_value and data:
+                entries.append({"date": date_value, "data": data})
+
+    # Backwards compatibility: allow old follow_up/date keyed structures
     follow_up = lab_data.get("follow_up")
     if isinstance(follow_up, dict):
         for k, v in follow_up.items():
@@ -176,14 +186,26 @@ def get_lab_timeline(case_id: str, db: Session = Depends(get_db)):
                 if d and isinstance(data, dict):
                     entries.append({"date": d, "data": data})
 
-    # Include any other top-level date-like keys
+    def is_date_string(value: str) -> bool:
+        try:
+            from datetime import datetime as _dt
+            for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d", "%d/%m/%Y", "%Y-%m", "%Y/%m"):
+                try:
+                    _dt.strptime(value, fmt)
+                    return True
+                except Exception:
+                    pass
+            _dt.fromisoformat(value)
+            return True
+        except Exception:
+            return False
+
     for k, v in lab_data.items():
-        if k in ("baseline", "derived_scores", "follow_up"):
+        if k in ("baseline", "derived_scores", "follow_up", "time_series"):
             continue
         if is_date_string(str(k)) and isinstance(v, dict):
             entries.append({"date": k, "data": v})
 
-    # Deduplicate by date, preserving the first occurrence (baseline label kept as 'baseline')
     seen = set()
     deduped = []
     for e in entries:

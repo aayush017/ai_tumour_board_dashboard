@@ -2,114 +2,108 @@
   "case_id": "TB-2025-0012",
   "demographics": {
     "name": "John Doe",
-    "age": 55,
-    "sex": "M"
+    "age": 76,
+    "sex": "M",
+    "BMI": 22.4
   },
-  "clinical_summary": {
-    "etiology": "HBV-related cirrhosis",
-    "symptoms": [
-      "Fatigue",
-      "Abdominal pain",
-      "Weight loss"
-    ],
-    "comorbidities": [
-      "Type 2 Diabetes",
-      "Hypertension"
-    ]
+  "clinical": {
+    "etiology": "HCV-related cirrhosis",
+    "symptoms": ["Abdominal pain", "Weight loss"],
+    "comorbidities": ["Diabetes", "Hypertension"],
+    "ascites": "none",
+    "encephalopathy": "none",
+    "ECOG": 1,
+    "clinical_notes_text": "Patient reports fatigue and anorexia. No GI bleed. No ascites clinically."
   },
   "lab_data": {
     "baseline": {
-      "ALT": 85.5,
-      "AST": 92.3,
-      "Tbil": 2.1,
-      "Alb": 3.5,
-      "PT": 14.2,
-      "INR": 1.3
+      "hemoglobin_g_dl": 11.5,
+      "WBC_k": 7.1,
+      "platelets_k": 140,
+      "total_bilirubin_mg_dl": 2.0,
+      "direct_bilirubin_mg_dl": 1.1,
+      "AST_U_L": 120,
+      "ALT_U_L": 55,
+      "ALP_U_L": 230,
+      "albumin_g_dl": 3.5,
+      "INR": 1.2,
+      "PT_sec": 14.5,
+      "Na_mmol_L": 132,
+      "creatinine_mg_dl": 0.9,
+      "AFP_ng_ml": 450,
+      "CRP_mg_L": 20
     },
-    "2024-01-15": {
-      "ALT": 75.0,
-      "AST": 80.0,
-      "Tbil": 1.8,
-      "Alb": 3.6,
-      "PT": 13.8,
-      "INR": 1.2
-    },
-    "2024-02-20": {
-      "ALT": 65.0,
-      "AST": 72.0,
-      "Tbil": 1.5,
-      "Alb": 3.7,
-      "PT": 13.5,
-      "INR": 1.1
-    },
-    "2024-03-25": {
-      "ALT": 58.0,
-      "AST": 68.0,
-      "Tbil": 1.3,
-      "Alb": 3.8,
-      "PT": 13.2,
-      "INR": 1.0
-    },
-    "derived_scores": {
-      "CTP": "B",
-      "MELD_Na": 12,
-      "AFP": 450.5
-    }
-  },
-  "imaging": {
-    "modality": "CT with contrast",
-    "findings": [
+    "time_series": [
       {
-        "date": "2024-01-10",
-        "lesion_count": 2,
-        "largest_size_cm": 5.2,
-        "segment": 4,
-        "LIRADS": 5,
-        "PVTT": true,
-        "METS": "None",
-        "ECOG": 1
+        "date": "2024-03-20",
+        "hemoglobin_g_dl": 11.2,
+        "AST_U_L": 110,
+        "ALT_U_L": 52,
+        "total_bilirubin_mg_dl": 1.8,
+        "albumin_g_dl": 3.6,
+        "AFP_ng_ml": 420
       },
       {
-        "date": "2024-02-15",
-        "lesion_count": 2,
-        "largest_size_cm": 4.8,
-        "segment": 4,
-        "LIRADS": 5,
-        "PVTT": false,
-        "METS": "None",
-        "ECOG": 1
+        "date": "2024-05-01",
+        "hemoglobin_g_dl": 11.0,
+        "AST_U_L": 105,
+        "ALT_U_L": 48,
+        "total_bilirubin_mg_dl": 1.6,
+        "albumin_g_dl": 3.7,
+        "AFP_ng_ml": 380
       }
-    ],
-    "follow_up_findings": {
-      "2024-03-20": "Stable disease, slight reduction in lesion size"
-    },
-    "attachments": [
-      "CT_report_2024-01-10.pdf",
-      "CT_images_2024-01-10.zip"
     ]
   },
-  "histopathology": {
-    "biopsy": "Core needle biopsy performed on 2024-01-12",
-    "fibrosis_stage": 4,
-    "comments": "Confirmed hepatocellular carcinoma, moderately differentiated"
+  "radiology": {
+    "studies": [
+      {
+        "date": "2025-01-15",
+        "modality": "CT Triphasic",
+        "imaging_center": "Apollo Radiology",
+        "radiology_report_text": "Liver shows cirrhotic morphology with a 4.2 cm arterial enhancing lesion...",
+        "files": {
+          "radiology_pdf": "reports/TB-2025-0012_CT_triphasic.pdf",
+          "dicom_zip": "dicom/TB-2025-0012_CT_triphasic.zip"
+        }
+      }
+    ]
+  },
+  "pathology": {
+    "biopsy_performed": true,
+    "pathology_report_text": "Moderately differentiated HCC with no vascular invasion...",
+    "files": {
+      "pathology_pdf": "reports/TB-2025-0012_pathology.pdf"
+    }
+  },
+  "tumor_board": {
+    "tb_notes_text": "Patient discussed in multidisciplinary tumor board. Recommendation: continue TACE.",
+    "members_present": ["Hepatologist", "Radiologist", "Oncologist"]
   },
   "treatment_history": {
-    "previous": [
-      "TACE",
-      "RFA"
-    ],
-    "current": "Atezolizumab + Bevacizumab",
-    "response_summary": "Patient showed partial response after 3 cycles. AFP levels decreased from 450 to 320. Imaging shows stable disease with slight reduction in lesion size."
+    "previous_treatments": ["TACE", "RFA"],
+    "current_treatment": "Atezolizumab + Bevacizumab",
+    "treatment_response_notes": "Partial response after 3 cycles."
   },
-  "tumor_board_notes": {
-    "discussion": "Patient presented with multifocal HCC in segment 4. PVTT was initially present but resolved after TACE. Patient is now on systemic therapy with good response. Performance status is good (ECOG 1).",
-    "recommendation": "Continue current systemic therapy. Re-evaluate after 6 cycles. Consider surgical resection if complete response achieved and liver function improves.",
-    "board_members": [
-      "Dr. Smith - Hepatologist",
-      "Dr. Johnson - Oncologist",
-      "Dr. Williams - Surgeon",
-      "Dr. Brown - Radiologist"
-    ]
+  "ground_truth": {
+    "clinical_scores": {
+      "Child_Pugh": "A",
+      "MELD": 12,
+      "MELD_Na": 14,
+      "ALBI": "-2.1"
+    },
+    "radiology": {
+      "true_LIRADS": 5,
+      "true_mRECIST": "PR",
+      "true_PVTT": false
+    },
+    "pathology": {
+      "true_differentiation": "Moderate",
+      "true_vascular_invasion": false
+    },
+    "treatment_staging": {
+      "true_BCLC": "B",
+      "true_intent": "Curative"
+    }
   }
 }
 

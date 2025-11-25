@@ -82,9 +82,9 @@ export default function PatientList() {
                       </span>
                     </div>
                   )}
-                  {patient.clinical_summary && (
+                  {patient.clinical && (
                     <div className="mt-2 text-sm text-gray-600">
-                      <span>Etiology: {patient.clinical_summary.etiology || 'N/A'}</span>
+                      <span>Etiology: {patient.clinical.etiology || 'N/A'}</span>
                     </div>
                   )}
                 </div>

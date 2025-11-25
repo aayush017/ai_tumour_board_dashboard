@@ -8,13 +8,13 @@ export default function LabChart({ timeline }) {
 
     // Transform timeline data for charting
     const chartData = timeline
-      .filter(entry => entry && entry.data) // Filter out invalid entries
+      .filter(entry => entry && entry.data)
       .map(entry => ({
         date: entry.date === 'baseline' ? 'Baseline' : entry.date || 'Unknown',
-        ALT: entry.data?.ALT ?? null,
-        AST: entry.data?.AST ?? null,
-        Tbil: entry.data?.Tbil ?? null,
-        Alb: entry.data?.Alb ?? null,
+        ALT_U_L: entry.data?.ALT_U_L ?? null,
+        AST_U_L: entry.data?.AST_U_L ?? null,
+        total_bilirubin_mg_dl: entry.data?.total_bilirubin_mg_dl ?? null,
+        AFP_ng_ml: entry.data?.AFP_ng_ml ?? null,
       }))
 
     if (chartData.length === 0) {
@@ -31,10 +31,22 @@ export default function LabChart({ timeline }) {
             <YAxis />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="ALT" stroke="#8884d8" strokeWidth={2} />
-            <Line type="monotone" dataKey="AST" stroke="#82ca9d" strokeWidth={2} />
-            <Line type="monotone" dataKey="Tbil" stroke="#ffc658" strokeWidth={2} />
-            <Line type="monotone" dataKey="Alb" stroke="#ff7300" strokeWidth={2} />
+            <Line type="monotone" dataKey="ALT_U_L" stroke="#8884d8" strokeWidth={2} name="ALT (U/L)" />
+            <Line type="monotone" dataKey="AST_U_L" stroke="#82ca9d" strokeWidth={2} name="AST (U/L)" />
+            <Line
+              type="monotone"
+              dataKey="total_bilirubin_mg_dl"
+              stroke="#ffc658"
+              strokeWidth={2}
+              name="Total Bilirubin (mg/dL)"
+            />
+            <Line
+              type="monotone"
+              dataKey="AFP_ng_ml"
+              stroke="#ff7300"
+              strokeWidth={2}
+              name="AFP (ng/mL)"
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

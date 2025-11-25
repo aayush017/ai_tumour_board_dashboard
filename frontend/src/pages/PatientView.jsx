@@ -4,6 +4,24 @@ import { Edit, ArrowLeft, BarChart3 } from 'lucide-react'
 import { getPatient, getLabTimeline, generateSpecialistSummary } from '../utils/api'
 import LabChart from '../components/LabChart'
 
+const labBaselineFields = [
+  { key: 'hemoglobin_g_dl', label: 'Hemoglobin (g/dL)' },
+  { key: 'WBC_k', label: 'WBC (k)' },
+  { key: 'platelets_k', label: 'Platelets (k)' },
+  { key: 'total_bilirubin_mg_dl', label: 'Total Bilirubin (mg/dL)' },
+  { key: 'direct_bilirubin_mg_dl', label: 'Direct Bilirubin (mg/dL)' },
+  { key: 'AST_U_L', label: 'AST (U/L)' },
+  { key: 'ALT_U_L', label: 'ALT (U/L)' },
+  { key: 'ALP_U_L', label: 'ALP (U/L)' },
+  { key: 'albumin_g_dl', label: 'Albumin (g/dL)' },
+  { key: 'INR', label: 'INR' },
+  { key: 'PT_sec', label: 'PT (sec)' },
+  { key: 'Na_mmol_L', label: 'Sodium (mmol/L)' },
+  { key: 'creatinine_mg_dl', label: 'Creatinine (mg/dL)' },
+  { key: 'AFP_ng_ml', label: 'AFP (ng/mL)' },
+  { key: 'CRP_mg_L', label: 'CRP (mg/L)' },
+]
+
 export default function PatientView() {
   const { caseId } = useParams()
   const [patient, setPatient] = useState(null)
@@ -216,7 +234,11 @@ export default function PatientView() {
         {patient.demographics && (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4">Demographics</h2>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-gray-600">Name:</span>{' '}
+                <span className="font-medium">{patient.demographics.name || 'N/A'}</span>
+              </div>
               <div>
                 <span className="text-gray-600">Age:</span>{' '}
                 <span className="font-medium">{patient.demographics.age || 'N/A'}</span>
@@ -225,34 +247,51 @@ export default function PatientView() {
                 <span className="text-gray-600">Sex:</span>{' '}
                 <span className="font-medium">{patient.demographics.sex || 'N/A'}</span>
               </div>
+              <div>
+                <span className="text-gray-600">BMI:</span>{' '}
+                <span className="font-medium">{patient.demographics.BMI ?? 'N/A'}</span>
+              </div>
             </div>
           </div>
         )}
 
-        {patient.clinical_summary && (
+        {patient.clinical && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Clinical Summary</h2>
+            <h2 className="text-xl font-semibold mb-4">Clinical</h2>
             <div className="space-y-2">
               <div>
                 <span className="text-gray-600">Etiology:</span>{' '}
                 <span className="font-medium">
-                  {patient.clinical_summary.etiology || 'N/A'}
+                  {patient.clinical.etiology || 'N/A'}
                 </span>
               </div>
-              {patient.clinical_summary.symptoms && patient.clinical_summary.symptoms.length > 0 && (
+              {patient.clinical.symptoms && patient.clinical.symptoms.length > 0 && (
                 <div>
                   <span className="text-gray-600">Symptoms:</span>{' '}
                   <span className="font-medium">
-                    {patient.clinical_summary.symptoms.join(', ')}
+                    {patient.clinical.symptoms.join(', ')}
                   </span>
                 </div>
               )}
-              {patient.clinical_summary.comorbidities && patient.clinical_summary.comorbidities.length > 0 && (
+              {patient.clinical.comorbidities && patient.clinical.comorbidities.length > 0 && (
                 <div>
                   <span className="text-gray-600">Comorbidities:</span>{' '}
                   <span className="font-medium">
-                    {patient.clinical_summary.comorbidities.join(', ')}
+                    {patient.clinical.comorbidities.join(', ')}
                   </span>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-4 text-sm pt-2">
+                <div>Ascites: {patient.clinical.ascites || 'N/A'}</div>
+                <div>Encephalopathy: {patient.clinical.encephalopathy || 'N/A'}</div>
+                <div>ECOG: {patient.clinical.ECOG ?? 'N/A'}</div>
+              </div>
+              {patient.clinical.clinical_notes_text && (
+                <div className="pt-2">
+                  <span className="text-gray-600 block mb-1">Clinical Notes:</span>
+                  <p className="text-gray-800 whitespace-pre-wrap">
+                    {patient.clinical.clinical_notes_text}
+                  </p>
                 </div>
               )}
             </div>
@@ -272,22 +311,11 @@ export default function PatientView() {
               <div className="mt-4">
                 <h3 className="font-semibold mb-2">Baseline Values</h3>
                 <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>ALT: {patient.lab_data.baseline.ALT || 'N/A'}</div>
-                  <div>AST: {patient.lab_data.baseline.AST || 'N/A'}</div>
-                  <div>Tbil: {patient.lab_data.baseline.Tbil || 'N/A'}</div>
-                  <div>Alb: {patient.lab_data.baseline.Alb || 'N/A'}</div>
-                  <div>PT: {patient.lab_data.baseline.PT || 'N/A'}</div>
-                  <div>INR: {patient.lab_data.baseline.INR || 'N/A'}</div>
-                </div>
-              </div>
-            )}
-            {patient.lab_data.derived_scores && (
-              <div className="mt-4">
-                <h3 className="font-semibold mb-2">Derived Scores</h3>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>CTP: {patient.lab_data.derived_scores.CTP || 'N/A'}</div>
-                  <div>MELD_Na: {patient.lab_data.derived_scores.MELD_Na || 'N/A'}</div>
-                  <div>AFP: {patient.lab_data.derived_scores.AFP || 'N/A'}</div>
+                  {labBaselineFields.map(({ key, label }) => (
+                    <div key={key}>
+                      {label}: {patient.lab_data.baseline[key] ?? 'N/A'}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -363,29 +391,54 @@ export default function PatientView() {
           </div>
         </div>
 
-        {patient.imaging && (
+        {patient.radiology?.studies && patient.radiology.studies.length > 0 && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Imaging</h2>
-            <div className="space-y-2">
-              <div>
-                <span className="text-gray-600">Modality:</span>{' '}
-                <span className="font-medium">{patient.imaging.modality || 'N/A'}</span>
-              </div>
-              {patient.imaging.findings && patient.imaging.findings.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mt-4 mb-2">Findings</h3>
-                  {patient.imaging.findings.map((finding, idx) => (
-                    <div key={idx} className="bg-gray-50 p-4 rounded mb-2">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>Date: {finding.date || 'N/A'}</div>
-                        <div>Lesions: {finding.lesion_count || 'N/A'}</div>
-                        <div>Size: {finding.largest_size_cm || 'N/A'} cm</div>
-                        <div>Segment: {finding.segment || 'N/A'}</div>
-                        <div>LI-RADS: {finding.LIRADS || 'N/A'}</div>
-                        <div>PVTT: {finding.PVTT ? 'Yes' : 'No'}</div>
-                      </div>
+            <h2 className="text-xl font-semibold mb-4">Radiology Studies</h2>
+            <div className="space-y-4">
+              {patient.radiology.studies.map((study, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                    <div>Date: {study.date || 'N/A'}</div>
+                    <div>Modality: {study.modality || 'N/A'}</div>
+                    <div>Center: {study.imaging_center || 'N/A'}</div>
+                  </div>
+                  {study.radiology_report_text && (
+                    <p className="text-gray-700 whitespace-pre-wrap text-sm">
+                      {study.radiology_report_text}
+                    </p>
+                  )}
+                  {study.files && (study.files.radiology_pdf || study.files.dicom_zip) && (
+                    <div className="text-xs text-gray-500 mt-3 space-y-1">
+                      {study.files.radiology_pdf && <div>PDF: {study.files.radiology_pdf}</div>}
+                      {study.files.dicom_zip && <div>DICOM: {study.files.dicom_zip}</div>}
                     </div>
-                  ))}
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {patient.pathology && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Pathology</h2>
+            <div className="space-y-3 text-sm">
+              <div>
+                Biopsy performed:{' '}
+                {patient.pathology.biopsy_performed === undefined || patient.pathology.biopsy_performed === null
+                  ? 'N/A'
+                  : patient.pathology.biopsy_performed
+                  ? 'Yes'
+                  : 'No'}
+              </div>
+              {patient.pathology.pathology_report_text && (
+                <p className="text-gray-700 whitespace-pre-wrap">
+                  {patient.pathology.pathology_report_text}
+                </p>
+              )}
+              {patient.pathology.files?.pathology_pdf && (
+                <div className="text-xs text-gray-500">
+                  Report: {patient.pathology.files.pathology_pdf}
                 </div>
               )}
             </div>
@@ -396,56 +449,100 @@ export default function PatientView() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold mb-4">Treatment History</h2>
             <div className="space-y-2">
-              {patient.treatment_history.previous && patient.treatment_history.previous.length > 0 && (
+              {patient.treatment_history.previous_treatments &&
+                patient.treatment_history.previous_treatments.length > 0 && (
                 <div>
                   <span className="text-gray-600">Previous:</span>{' '}
                   <span className="font-medium">
-                    {patient.treatment_history.previous.join(', ')}
+                    {patient.treatment_history.previous_treatments.join(', ')}
                   </span>
                 </div>
               )}
               <div>
                 <span className="text-gray-600">Current:</span>{' '}
                 <span className="font-medium">
-                  {patient.treatment_history.current || 'N/A'}
+                  {patient.treatment_history.current_treatment || 'N/A'}
                 </span>
               </div>
               <div>
                 <span className="text-gray-600">Response Summary:</span>{' '}
                 <span className="font-medium">
-                  {patient.treatment_history.response_summary || 'N/A'}
+                  {patient.treatment_history.treatment_response_notes || 'N/A'}
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {patient.tumor_board_notes && (
+        {patient.tumor_board && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Tumor Board Notes</h2>
+            <h2 className="text-xl font-semibold mb-4">Tumor Board</h2>
             <div className="space-y-4">
-              {patient.tumor_board_notes.discussion && (
+              {patient.tumor_board.tb_notes_text && (
                 <div>
-                  <h3 className="font-semibold mb-2">Discussion</h3>
                   <p className="text-gray-700 whitespace-pre-wrap">
-                    {patient.tumor_board_notes.discussion}
+                    {patient.tumor_board.tb_notes_text}
                   </p>
                 </div>
               )}
-              {patient.tumor_board_notes.recommendation && (
+              {patient.tumor_board.members_present && patient.tumor_board.members_present.length > 0 && (
                 <div>
-                  <h3 className="font-semibold mb-2">Recommendation</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {patient.tumor_board_notes.recommendation}
-                  </p>
-                </div>
-              )}
-              {patient.tumor_board_notes.board_members && patient.tumor_board_notes.board_members.length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-2">Board Members</h3>
+                  <h3 className="font-semibold mb-2">Members Present</h3>
                   <p className="text-gray-700">
-                    {patient.tumor_board_notes.board_members.join(', ')}
+                    {patient.tumor_board.members_present.join(', ')}
                   </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {patient.ground_truth && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Ground Truth</h2>
+            <div className="grid gap-6 md:grid-cols-2">
+              {patient.ground_truth.clinical_scores && (
+                <div>
+                  <h3 className="font-semibold mb-2">Clinical Scores</h3>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>Child Pugh: {patient.ground_truth.clinical_scores.Child_Pugh || 'N/A'}</div>
+                    <div>MELD: {patient.ground_truth.clinical_scores.MELD ?? 'N/A'}</div>
+                    <div>MELD-Na: {patient.ground_truth.clinical_scores.MELD_Na ?? 'N/A'}</div>
+                    <div>ALBI: {patient.ground_truth.clinical_scores.ALBI || 'N/A'}</div>
+                  </div>
+                </div>
+              )}
+              {patient.ground_truth.radiology && (
+                <div>
+                  <h3 className="font-semibold mb-2">Radiology</h3>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>LI-RADS: {patient.ground_truth.radiology.true_LIRADS ?? 'N/A'}</div>
+                    <div>mRECIST: {patient.ground_truth.radiology.true_mRECIST || 'N/A'}</div>
+                    <div className="col-span-2">
+                      PVTT: {patient.ground_truth.radiology.true_PVTT ? 'Present' : 'Absent'}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {patient.ground_truth.pathology && (
+                <div>
+                  <h3 className="font-semibold mb-2">Pathology</h3>
+                  <div className="text-sm space-y-1">
+                    <div>Diff: {patient.ground_truth.pathology.true_differentiation || 'N/A'}</div>
+                    <div>
+                      Vascular Invasion:{' '}
+                      {patient.ground_truth.pathology.true_vascular_invasion ? 'Present' : 'Absent'}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {patient.ground_truth.treatment_staging && (
+                <div>
+                  <h3 className="font-semibold mb-2">Treatment Staging</h3>
+                  <div className="text-sm space-y-1">
+                    <div>BCLC: {patient.ground_truth.treatment_staging.true_BCLC || 'N/A'}</div>
+                    <div>Intent: {patient.ground_truth.treatment_staging.true_intent || 'N/A'}</div>
+                  </div>
                 </div>
               )}
             </div>

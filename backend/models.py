@@ -11,28 +11,15 @@ class PatientEntity(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     case_id = Column(String, unique=True, index=True, nullable=False)
     
-    # Demographics
     demographics = Column(JSON)
-    
-    # Clinical Summary
-    clinical_summary = Column(JSON)
-    
-    # Lab Data
+    clinical = Column("clinical_summary", JSON)
     lab_data = Column(JSON)
-    
-    # Imaging
-    imaging = Column(JSON)
-    
-    # Histopathology
-    histopathology = Column(JSON)
-    
-    # Treatment History
+    radiology = Column("imaging", JSON)
+    pathology = Column("histopathology", JSON)
+    tumor_board = Column("tumor_board_notes", JSON)
     treatment_history = Column(JSON)
+    ground_truth = Column(JSON)
     
-    # Tumor Board Notes
-    tumor_board_notes = Column(JSON)
-    
-    # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -41,12 +28,13 @@ class PatientEntity(Base):
             "id": self.id,
             "case_id": self.case_id,
             "demographics": self.demographics,
-            "clinical_summary": self.clinical_summary,
+            "clinical": self.clinical,
             "lab_data": self.lab_data,
-            "imaging": self.imaging,
-            "histopathology": self.histopathology,
+            "radiology": self.radiology,
+            "pathology": self.pathology,
+            "tumor_board": self.tumor_board,
             "treatment_history": self.treatment_history,
-            "tumor_board_notes": self.tumor_board_notes,
+            "ground_truth": self.ground_truth,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
