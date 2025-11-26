@@ -124,9 +124,9 @@ class ClinicalDataAgent:
                 "Child_Pugh": {"score": None, "class": "", "components": {}},
                 "MELD": None,
                 "MELD_Na": None,
-                "ALBI": {"score": None, "grade": None},
-                "APRI": None,
-                "FIB_4": None
+                "ALBI": {"score": None, "grade": None}
+                # ,"APRI": None,
+                # "FIB_4": None
             },
             "lab_flags": {},
             "clinical_interpretation": ""
@@ -464,18 +464,18 @@ DONOT HALLUCINATE DATA."""
             albumin_g_dl=labs.get("albumin_g_dl")
         )
 
-        clinical_summary["derived_scores"]["APRI"] = self._compute_apri(
-            ast=labs.get("AST_U_L"),
-            platelets_k=labs.get("platelets_k"),
-            uln_ast=self.ULN_AST
-        )
+        # clinical_summary["derived_scores"]["APRI"] = self._compute_apri(
+        #     ast=labs.get("AST_U_L"),
+        #     platelets_k=labs.get("platelets_k"),
+        #     uln_ast=self.ULN_AST
+        # )
 
-        clinical_summary["derived_scores"]["FIB_4"] = self._compute_fib4(
-            age=age,
-            ast=labs.get("AST_U_L"),
-            alt=labs.get("ALT_U_L"),
-            platelets_k=labs.get("platelets_k")
-        )
+        # clinical_summary["derived_scores"]["FIB_4"] = self._compute_fib4(
+        #     age=age,
+        #     ast=labs.get("AST_U_L"),
+        #     alt=labs.get("ALT_U_L"),
+        #     platelets_k=labs.get("platelets_k")
+        # )
 
     def _compute_child_pugh(self, bilirubin, albumin, inr, ascites, encephalopathy) -> Dict[str, Any]:
         components = {"bilirubin": None, "albumin": None, "INR": None, "ascites": None, "encephalopathy": None}
