@@ -53,9 +53,7 @@ class ClinicalDataAgent:
         {
           "clinical_summary": {...},
           "agent_metadata": {...},
-          "ground_truth": {"clinical_scores": {Child_Pugh, MELD, MELD_Na, ALBI}}
         }
-        Ground truth is passed through if present; else nulls are returned.
         """
         clinical_summary = self._initialize_clinical_summary(input_data)
         demographics = input_data.get("demographics", {})
@@ -78,24 +76,10 @@ class ClinicalDataAgent:
         # Confidence
         confidence = self._calculate_confidence(clinical_summary, input_data)
 
-        # Ground truth pass-through: if input has ground_truth -> copy exactly, else null block
-        input_gt = input_data.get("ground_truth")
-        if input_gt and isinstance(input_gt, dict):
-            gt_out = input_gt
-        else:
-            gt_out = {
-                "clinical_scores": {
-                    "Child_Pugh": None,
-                    "MELD": None,
-                    "MELD_Na": None,
-                    "ALBI": None
-                }
-            }
 
         return {
             "clinical_summary": clinical_summary,
             "agent_metadata": {"clinical_agent_confidence": round(confidence, 2)},
-            "ground_truth": gt_out
         }
 
     # -----------------------
