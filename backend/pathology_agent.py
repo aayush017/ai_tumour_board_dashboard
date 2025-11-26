@@ -79,9 +79,9 @@ class PathologyMolecularAgent:
             self._generate_interpretation(pathology_summary)
 
         # ----- Confidence -----
-        pathology_summary["agent_confidence"] = \
+        pathology_summary["agent_metadata"] = {"pathology_agent_confidence":\
             self._calculate_confidence(pathology_summary, biopsy_markers,
-                                       pathology_text, molecular_text)
+                                       pathology_text, molecular_text)}
 
         return {"pathology_summary": pathology_summary}
 
@@ -116,7 +116,7 @@ class PathologyMolecularAgent:
                     "molecular_profile_text": ""
                 },
                 "pathology_interpretation": "No biopsy performed; pathology data unavailable.",
-                "agent_confidence": 1.0
+                "agent_metadata": {"pathology_agent_confidence": 1.0}
             }
         }
 
@@ -154,7 +154,7 @@ class PathologyMolecularAgent:
             },
             "source_text": {},
             "pathology_interpretation": "",
-            "agent_confidence": 0.0
+            "agent_metadata": {"pathology_agent_confidence":0.0}
         }
 
     # =================================================================
