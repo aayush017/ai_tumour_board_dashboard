@@ -1,8 +1,5 @@
 """
-ClinicalDataAgent (updated)
-- Baseline labs used for derived scores
-- Lab flags include PT_sec (range loaded from parameters.xlsx if available)
-- Ground truth block is passed through from input; if absent, agent returns null ground_truth block
+ClinicalDataAgent 
 """
 
 import json
@@ -33,7 +30,8 @@ DEFAULT_LAB_REFERENCE_RANGES = {
     "Na_mmol_L": (135, 146),
     "creatinine_mg_dl": {"male": (0.7, 1.3), "female": (0.6, 1.1)},
     "AFP_ng_ml": (0, 20),
-    "CRP_mg_L": (0, 10)
+    "CRP_mg_L": (0, 10),
+    "PIVKA_II_mAU_ml": (0, 40)
 }
 
 
@@ -184,7 +182,7 @@ class ClinicalDataAgent:
             "hemoglobin_g_dl", "WBC_k", "platelets_k", "total_bilirubin_mg_dl",
             "direct_bilirubin_mg_dl", "AST_U_L", "ALT_U_L", "ALP_U_L",
             "albumin_g_dl", "INR", "PT_sec", "Na_mmol_L", "creatinine_mg_dl",
-            "AFP_ng_ml", "CRP_mg_L"
+            "AFP_ng_ml", "CRP_mg_L", "PIVKA_II_mAU_ml"
         ]
         if isinstance(labs, dict) and "date" in labs:
             normalized["date"] = labs.get("date")
@@ -575,28 +573,28 @@ DONOT HALLUCINATE DATA."""
         except Exception:
             return {"score": None, "grade": None}
 
-    def _compute_apri(self, ast: Optional[float], platelets_k: Optional[float], uln_ast: float = None) -> Optional[float]:
-        if ast is None or platelets_k is None:
-            return None
-        try:
-            uln = uln_ast if uln_ast is not None else self.ULN_AST
-            if platelets_k == 0:
-                return None
-            apri = ((ast / float(uln)) / float(platelets_k)) * 100.0
-            return round(apri, 2)
-        except Exception:
-            return None
+    # def _compute_apri(self, ast: Optional[float], platelets_k: Optional[float], uln_ast: float = None) -> Optional[float]:
+    #     if ast is None or platelets_k is None:
+    #         return None
+    #     try:
+    #         uln = uln_ast if uln_ast is not None else self.ULN_AST
+    #         if platelets_k == 0:
+    #             return None
+    #         apri = ((ast / float(uln)) / float(platelets_k)) * 100.0
+    #         return round(apri, 2)
+    #     except Exception:
+    #         return None
 
-    def _compute_fib4(self, age: Optional[int], ast: Optional[float], alt: Optional[float], platelets_k: Optional[float]) -> Optional[float]:
-        if any(v is None for v in [age, ast, alt, platelets_k]):
-            return None
-        try:
-            if platelets_k == 0 or alt == 0:
-                return None
-            fib4 = (float(age) * float(ast)) / (float(platelets_k) * math.sqrt(float(alt)))
-            return round(fib4, 2)
-        except Exception:
-            return None
+    # def _compute_fib4(self, age: Optional[int], ast: Optional[float], alt: Optional[float], platelets_k: Optional[float]) -> Optional[float]:
+    #     if any(v is None for v in [age, ast, alt, platelets_k]):
+    #         return None
+    #     try:
+    #         if platelets_k == 0 or alt == 0:
+    #             return None
+    #         fib4 = (float(age) * float(ast)) / (float(platelets_k) * math.sqrt(float(alt)))
+    #         return round(fib4, 2)
+    #     except Exception:
+    #         return None
 
     # -----------------------
     # Lab flags
@@ -607,7 +605,7 @@ DONOT HALLUCINATE DATA."""
         for lab_key in [
             "hemoglobin_g_dl", "WBC_k", "platelets_k", "total_bilirubin_mg_dl",
             "direct_bilirubin_mg_dl", "AST_U_L", "ALT_U_L", "ALP_U_L",
-            "albumin_g_dl", "INR", "PT_sec", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml", "CRP_mg_L"
+            "albumin_g_dl", "INR", "PT_sec", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml", "CRP_mg_L", "PIVKA_II_mAU_ml"
         ]:
             val = baseline_labs.get(lab_key)
             if val is None:
@@ -713,6 +711,9 @@ DONOT HALLUCINATE DATA."""
 #         return f"Patient with {etiology} (Child-Pugh {child_class}, MELD-Na {meld_na}) and ECOG {ecog}. Baseline labs: {abnormal_text}."
 
 
+    # -----------------------
+    # Interpretation (LLM)
+    # -----------------------
     def _generate_interpretation(self, clinical_summary: Dict[str, Any], demographics: Dict[str, Any], max_retries: int = 3) -> str:
         """Generate interpretation + safe descriptive-only trend summary."""
         child = clinical_summary.get("derived_scores", {}).get("Child_Pugh", {})
@@ -737,7 +738,8 @@ DONOT HALLUCINATE DATA."""
             trend_items = []
             trend_fields = [
                 "total_bilirubin_mg_dl", "albumin_g_dl", "INR", "AST_U_L", "ALT_U_L",
-                "platelets_k", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml"
+                "platelets_k", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml",
+                "PIVKA_II_mAU_ml"
             ]
 
             for f in trend_fields:
@@ -908,7 +910,8 @@ if __name__ == "__main__":
                 "Na_mmol_L": 126,
                 "creatinine_mg_dl": 0.87,
                 "AFP_ng_ml": 400000,
-                "CRP_mg_L": 112
+                "CRP_mg_L": 112,
+                "PIVKA_II_mAU_ml": 344
             },
             "time_series": [
                 {
@@ -927,7 +930,8 @@ if __name__ == "__main__":
                     "Na_mmol_L": 132,
                     "creatinine_mg_dl": 0.93,
                     "AFP_ng_ml": 3600,
-                    "CRP_mg_L": 68
+                    "CRP_mg_L": 68,
+                    "PIVKA_II_mAU_ml": 112
                 }
             ]
         },
