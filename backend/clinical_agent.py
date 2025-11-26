@@ -918,9 +918,7 @@ if __name__ == "__main__":
                     "PIVKA_II_mAU_ml": 112
                 }
             ]
-        },
-        # Example ground_truth present in input (agent should pass through unchanged)
-        # "ground_truth": {"clinical_scores": {"Child_Pugh": "A", "MELD": 12, "MELD_Na": 12, "ALBI": "-2.6"}}
+        }
     }
 
     # Ensure OPENAI_API_KEY set in env or pass here
