@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Edit, ArrowLeft, BarChart3 } from 'lucide-react'
-import { getPatient, getLabTimeline, generateSpecialistSummary } from '../utils/api'
+import { getPatient, getLabTimeline, generateSpecialistSummary, generateAgentSummary } from '../utils/api'
 import LabChart from '../components/LabChart'
 
 const labBaselineFields = [
@@ -31,6 +31,9 @@ export default function PatientView() {
   const [activeSpecialist, setActiveSpecialist] = useState(null)
   const [specialistSummaries, setSpecialistSummaries] = useState({})
   const [specialistStatus, setSpecialistStatus] = useState({})
+  const [agentSummary, setAgentSummary] = useState(null)
+  const [agentSummaryLoading, setAgentSummaryLoading] = useState(false)
+  const [agentSummaryError, setAgentSummaryError] = useState(null)
 
   const specialistOptions = [
     { id: 'oncologist', label: 'Oncologist' },
@@ -101,6 +104,23 @@ export default function PatientView() {
           error: err.response?.data?.detail || err.message || 'Failed to generate summary',
         },
       }))
+    }
+  }
+
+  const handleLoadAgentSummary = async () => {
+    if (agentSummaryLoading || agentSummary) return
+
+    setAgentSummaryLoading(true)
+    setAgentSummaryError(null)
+
+    try {
+      const data = await generateAgentSummary(caseId)
+      setAgentSummary(data)
+    } catch (err) {
+      console.error('Error generating agent summary:', err)
+      setAgentSummaryError(err.response?.data?.detail || err.message || 'Failed to generate agent summary')
+    } finally {
+      setAgentSummaryLoading(false)
     }
   }
 
@@ -389,6 +409,148 @@ export default function PatientView() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Comprehensive Agent Summary Section */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">Comprehensive Agent Analysis</h2>
+              <p className="text-sm text-gray-500">
+                Generate a comprehensive analysis using all four agents: Radiology, Clinical, Pathology, and Tumor Board.
+              </p>
+            </div>
+          </div>
+          
+          {!agentSummary && !agentSummaryLoading && (
+            <button
+              type="button"
+              onClick={handleLoadAgentSummary}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              Generate Comprehensive Analysis
+            </button>
+          )}
+
+          {agentSummaryLoading && (
+            <div className="text-gray-600 text-sm py-4">Generating comprehensive analysis... This may take a moment.</div>
+          )}
+
+          {agentSummaryError && (
+            <div className="text-red-600 text-sm py-4 bg-red-50 rounded-lg p-4">
+              Error: {agentSummaryError}
+            </div>
+          )}
+
+          {agentSummary && (
+            <div className="mt-6 space-y-6">
+              {/* Culminated Plan of Action */}
+              {agentSummary.culminated_plan_of_action && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-3 text-blue-600">Culminated Plan of Action</h3>
+                  <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                    <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">
+                      {agentSummary.culminated_plan_of_action.summary}
+                    </p>
+                  </div>
+                  
+                  {agentSummary.culminated_plan_of_action.recommendations && 
+                   agentSummary.culminated_plan_of_action.recommendations.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold mb-2">Recommendations:</h4>
+                      <ul className="list-disc list-inside space-y-1 text-gray-700">
+                        {agentSummary.culminated_plan_of_action.recommendations.map((rec, idx) => (
+                          <li key={idx}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {agentSummary.culminated_plan_of_action.key_findings && 
+                   agentSummary.culminated_plan_of_action.key_findings.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-semibold mb-2">Key Findings:</h4>
+                      <ul className="list-disc list-inside space-y-1 text-gray-700">
+                        {agentSummary.culminated_plan_of_action.key_findings.map((finding, idx) => (
+                          <li key={idx}>{finding}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Individual Agent Responses */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4">Individual Agent Responses</h3>
+                
+                <div className="space-y-6">
+                  {/* Radiology */}
+                  {agentSummary.agent_responses?.radiology && (
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-600 mb-2">Radiology Agent</h4>
+                      {agentSummary.agent_responses.radiology.radiology_summary?.radiology_interpretation && (
+                        <p className="text-gray-700 text-sm">
+                          {agentSummary.agent_responses.radiology.radiology_summary.radiology_interpretation}
+                        </p>
+                      )}
+                      {agentSummary.agent_metadata?.radiology_confidence !== null && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Confidence: {agentSummary.agent_metadata.radiology_confidence}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Clinical */}
+                  {agentSummary.agent_responses?.clinical && (
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold text-green-600 mb-2">Clinical Agent</h4>
+                      {agentSummary.agent_responses.clinical.clinical_summary?.clinical_interpretation && (
+                        <p className="text-gray-700 text-sm">
+                          {agentSummary.agent_responses.clinical.clinical_summary.clinical_interpretation}
+                        </p>
+                      )}
+                      {agentSummary.agent_metadata?.clinical_confidence !== null && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Confidence: {agentSummary.agent_metadata.clinical_confidence}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pathology */}
+                  {agentSummary.agent_responses?.pathology && (
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold text-purple-600 mb-2">Pathology Agent</h4>
+                      {agentSummary.agent_responses.pathology.pathology_summary?.pathology_interpretation && (
+                        <p className="text-gray-700 text-sm">
+                          {agentSummary.agent_responses.pathology.pathology_summary.pathology_interpretation}
+                        </p>
+                      )}
+                      {agentSummary.agent_metadata?.pathology_confidence !== null && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Confidence: {agentSummary.agent_metadata.pathology_confidence}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tumor Board */}
+                  {agentSummary.agent_responses?.tumor_board && (
+                    <div className="border rounded-lg p-4">
+                      <h4 className="font-semibold text-orange-600 mb-2">Tumor Board Agent</h4>
+                      {agentSummary.agent_responses.tumor_board.notes_summary?.tumor_board_text && (
+                        <p className="text-gray-700 text-sm">
+                          {agentSummary.agent_responses.tumor_board.notes_summary.tumor_board_text}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {patient.radiology?.studies && patient.radiology.studies.length > 0 && (

@@ -43,3 +43,8 @@ export const generateSpecialistSummary = async (caseId, specialist) => {
   const response = await api.post(`/api/patients/${caseId}/specialists/${specialist}/summary`)
   return response.data
 }
+
+export const generateAgentSummary = async (caseId) => {
+  const response = await api.post(`/api/patients/${caseId}/agent-summary`)
+  return response.data
+}
