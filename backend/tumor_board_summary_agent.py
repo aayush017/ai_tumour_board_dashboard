@@ -1,11 +1,6 @@
 import json
+from typing import Dict, Any, Optional
 from openai import OpenAI
-from dotenv import load_dotenv
-import os
-
-load_dotenv()  # load .env file if present
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
 
 class TumorBoardNotesAgent:
 
@@ -42,13 +37,12 @@ class TumorBoardNotesAgent:
     }
     """
 
-    def __init__(self, model="gpt-4o", temperature=0):
-        
+    def __init__(self, client: OpenAI, model="gpt-4o", temperature=0):
+        self.client = client
         self.model = model
         self.temperature = temperature
 
-    def run(self, tumor_board, treatment_history):
-        
+    def run(self, tumor_board: Dict[str, Any], treatment_history: Dict[str, Any]) -> Dict[str, Any]:
         payload = {
             "tb_notes_text": tumor_board.get("tb_notes_text", ""),
             "members_present": tumor_board.get("members_present", []),
@@ -57,7 +51,7 @@ class TumorBoardNotesAgent:
             "treatment_response_notes": treatment_history.get("treatment_response_notes", "")
         }
 
-        response = client.chat.completions.create(
+        response = self.client.chat.completions.create(
             model=self.model,
             temperature=self.temperature,
             response_format={"type": "json_object"},
@@ -70,19 +64,29 @@ class TumorBoardNotesAgent:
         return json.loads(response.choices[0].message.content)
 
 
-agent = TumorBoardNotesAgent()
+# Sample usage when run directly (avoids side effects on import)
+if __name__ == "__main__":
+    import os
+    from dotenv import load_dotenv
 
+    load_dotenv()
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise SystemExit("OPENAI_API_KEY not set")
 
-tumor_board_data = {
-    "tb_notes_text": "Patient discussed in TB. Partial response after TACE. Plan to continue immunotherapy and reassess with MRI in 3 months.",
-    "members_present": ["Hepatologist", "Radiologist", "Oncologist"]
-}
+    client = OpenAI(api_key=api_key)
+    agent = TumorBoardNotesAgent(client=client)
 
-treatment_history_data = {
-    "previous_treatments": ["TACE"],
-    "current_treatment": "Atezolizumab + Bevacizumab",
-    "treatment_response_notes": "Partial response after TACE."
-}
+    tumor_board_data = {
+        "tb_notes_text": "Patient discussed in TB. Partial response after TACE. Plan to continue immunotherapy and reassess with MRI in 3 months.",
+        "members_present": ["Hepatologist", "Radiologist", "Oncologist"]
+    }
 
-output = agent.run(tumor_board_data, treatment_history_data)
-print(json.dumps(output, indent=2))
+    treatment_history_data = {
+        "previous_treatments": ["TACE"],
+        "current_treatment": "Atezolizumab + Bevacizumab",
+        "treatment_response_notes": "Partial response after TACE."
+    }
+
+    output = agent.run(tumor_board_data, treatment_history_data)
+    print(json.dumps(output, indent=2))

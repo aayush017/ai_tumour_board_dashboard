@@ -4,12 +4,6 @@ from typing import Dict, Any, Optional
 from openai import OpenAI
 import os
 
-
-from dotenv import load_dotenv
-
-load_dotenv()  # load .env file if present
-api_key = os.getenv("OPENAI_API_KEY")
-
 # =================================================================
 #  PATHOLOGY & MOLECULAR EXTRACTION AGENT (GPT-4o-mini + GPT-4o)
 # =================================================================
@@ -25,7 +19,7 @@ class PathologyMolecularAgent:
         Initialize the agent with OpenAI API.
         Uses GPT-4o-mini for extraction/filling and GPT-4o for interpretation.
         """
-        self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
+        self.client = OpenAI(api_key=openai_api_key or os.getenv("OPENAI_API_KEY"))
         self.extract_model = "gpt-4o-mini"   # optimized for deterministic structured JSON extraction
         self.interpret_model = "gpt-4o"      # high-quality summarization
 
@@ -271,14 +265,14 @@ class PathologyMolecularAgent:
     """
 
         try:
-            resp = self.client.responses.create(
+            resp = self.client.chat.completions.create(
                 model=self.extract_model,
-                input=[{"role": "user", "content": extraction_prompt}],
+                messages=[{"role": "user", "content": extraction_prompt}],
                 temperature=0,
-                max_output_tokens=500
+                max_tokens=500
             )
 
-            raw = resp.output[0].content[0].text.strip()
+            raw = resp.choices[0].message.content.strip()
 
             # --- Safety: extract JSON using regex ---
             json_match = re.search(r"\{[\s\S]*\}", raw)
@@ -334,13 +328,13 @@ Avoid 'not_reported' markers.
         }]
 
         try:
-            resp = self.client.responses.create(
+            resp = self.client.chat.completions.create(
                 model=self.interpret_model,
-                input=prompt,
+                messages=prompt,
                 temperature=0.3,
-                max_output_tokens=200,
+                max_tokens=200,
             )
-            return resp.output[0].content[0].text.strip()
+            return resp.choices[0].message.content.strip()
 
         except Exception:
             return "Pathology summarized."
@@ -376,7 +370,16 @@ Avoid 'not_reported' markers.
 # =================================================================
 
 def main():
-    agent = PathologyMolecularAgent(openai_api_key="YOUR_API_KEY_HERE")
+    # Try to load from environment if dotenv is available
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+    
+    import os
+    api_key = os.getenv("OPENAI_API_KEY") or "YOUR_API_KEY_HERE"
+    agent = PathologyMolecularAgent(openai_api_key=api_key)
 
     # ----------------- Example 1 -----------------
     sample_input_1 = {

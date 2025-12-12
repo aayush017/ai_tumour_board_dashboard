@@ -16,6 +16,7 @@ from services.specialist_agents import (
     SpecialistModelError,
     generate_specialist_summary as run_specialist_agent,
 )
+from services.agent_orchestrator import AgentOrchestrator
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -238,6 +239,45 @@ def get_lab_timeline(case_id: str, db: Session = Depends(get_db)):
 
     return {"timeline": deduped}
 
+@app.post("/api/patients/{case_id}/agent-summary")
+def generate_agent_summary(
+    case_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Generate comprehensive agent summary using all four agents:
+    - Radiology Agent
+    - Clinical Data Agent  
+    - Pathology Agent
+    - Tumor Board Summary Agent
+    
+    Returns combined outputs with a culminated plan of action.
+    """
+    patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    patient_context = build_patient_context(patient)
+    if not patient_context:
+        raise HTTPException(
+            status_code=400,
+            detail="Patient data is insufficient to generate agent summaries.",
+        )
+
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="OPENAI_API_KEY is not configured on the server."
+            )
+        
+        orchestrator = AgentOrchestrator(openai_api_key=api_key)
+        result = orchestrator.process_all(patient_context)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error generating agent summaries: {str(exc)}") from exc
+
 @app.post(
     "/api/patients/{case_id}/specialists/{specialist}/summary",
     response_model=schemas.SpecialistSummaryResponse,
@@ -247,7 +287,10 @@ def generate_specialist_summary(
     specialist: schemas.SpecialistType,
     db: Session = Depends(get_db),
 ):
-    """Generate an AI-assisted diagnosis and plan for a given specialist."""
+    """
+    [DEPRECATED] Generate an AI-assisted diagnosis and plan for a given specialist.
+    Use /api/patients/{case_id}/agent-summary instead for comprehensive analysis.
+    """
     patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
