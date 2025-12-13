@@ -61,6 +61,10 @@ def get_openai_client() -> OpenAI:
     if _openai_client:
         return _openai_client
 
+    
+    from dotenv import load_dotenv
+
+    load_dotenv()  # load .env file if present
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -260,7 +264,7 @@ def generate_specialist_summary(
         )
 
     client = get_openai_client()
-    model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4o")
 
     try:
         return run_specialist_agent(
