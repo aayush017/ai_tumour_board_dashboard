@@ -342,75 +342,6 @@ export default function PatientView() {
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-semibold">Specialist AI Summaries</h2>
-              <p className="text-sm text-gray-500">
-                Select a specialist to generate a concise diagnosis and plan tailored to this patient.
-              </p>
-            </div>
-            <p className="text-xs text-gray-400">Powered by your OpenAI GPT-4 key</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {specialistOptions.map((option) => {
-              const status = specialistStatus[option.id]
-              const isActive = activeSpecialist === option.id
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => handleSpecialistSelect(option.id)}
-                  className={`px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100'
-                      : 'bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:shadow'
-                  }`}
-                >
-                  {status?.loading ? `Generating ${option.label}...` : option.label}
-                </button>
-              )
-            })}
-          </div>
-          <div className="mt-6 border-t pt-4">
-            {activeSpecialist ? (
-              (() => {
-                const activeStatus = specialistStatus[activeSpecialist]
-                const summary = specialistSummaries[activeSpecialist]
-                const activeLabel =
-                  specialistOptions.find((opt) => opt.id === activeSpecialist)?.label ||
-                  activeSpecialist
-
-                if (activeStatus?.error) {
-                  return (
-                    <div className="text-red-600 text-sm">
-                      {activeStatus.error}. Please try again or check the server logs.
-                    </div>
-                  )
-                }
-
-                if (activeStatus?.loading) {
-                  return <div className="text-gray-600 text-sm">Generating summary...</div>
-                }
-
-                if (!summary) {
-                  return (
-                    <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-gray-600 text-sm">
-                      Click "{activeLabel}" to generate their recommendations.
-                    </div>
-                  )
-                }
-
-                return renderSummaryCard(summary)
-              })()
-            ) : (
-              <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-gray-600 text-sm">
-                Choose a specialist above to generate a tailored AI summary.
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Comprehensive Agent Summary Section */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-4">
@@ -438,7 +369,12 @@ export default function PatientView() {
 
           {agentSummaryError && (
             <div className="text-red-600 text-sm py-4 bg-red-50 rounded-lg p-4">
-              Error: {agentSummaryError}
+              <strong>Error:</strong> {agentSummaryError}
+              {agentSummaryError.includes("quota") || agentSummaryError.includes("rate limit") ? (
+                <div className="mt-2 text-xs text-red-700">
+                  Note: Your OpenAI API quota has been exceeded. Please check your billing or wait before retrying.
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -477,6 +413,21 @@ export default function PatientView() {
                       </ul>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Agent Errors */}
+              {agentSummary.agent_metadata?.errors && Object.keys(agentSummary.agent_metadata.errors).length > 0 && (
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4 text-red-600">Agent Errors</h3>
+                  <div className="space-y-2">
+                    {Object.entries(agentSummary.agent_metadata.errors).map(([agent, error]) => (
+                      <div key={agent} className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <strong className="text-red-800 capitalize">{agent} Agent:</strong>
+                        <p className="text-red-700 text-sm mt-1">{error}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

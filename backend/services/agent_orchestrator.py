@@ -5,9 +5,13 @@ and combines their outputs into a unified response.
 """
 
 from typing import Dict, Any, Optional
-from openai import OpenAI
+from openai import OpenAI, RateLimitError, APIError
 import os
 import sys
+import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Add backend directory to path for imports
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,13 +73,26 @@ class AgentOrchestrator:
             "errors": {}
         }
 
+        # Helper to handle errors with better messages
+        def handle_agent_error(agent_name: str, error: Exception) -> str:
+            """Format error messages for better user experience."""
+            error_str = str(error)
+            if "429" in error_str or "quota" in error_str.lower() or "rate limit" in error_str.lower():
+                return f"OpenAI API rate limit/quota exceeded. Please check your API plan and billing."
+            elif "insufficient_quota" in error_str:
+                return f"OpenAI API quota exceeded. Please check your billing details."
+            else:
+                return f"{agent_name} processing failed: {error_str[:200]}"
+
         # 1. Process Radiology
         try:
             radiology_section = patient_data.get("radiology", {})
             if radiology_section and radiology_section.get("studies"):
                 results["radiology"] = self.radiology_agent.process(radiology_section)
+                time.sleep(0.5)  # Small delay to avoid rate limits
         except Exception as e:
-            results["errors"]["radiology"] = str(e)
+            results["errors"]["radiology"] = handle_agent_error("Radiology", e)
+            logger.warning(f"Radiology agent error: {e}")
 
         # 2. Process Clinical
         try:
@@ -85,15 +102,19 @@ class AgentOrchestrator:
                 "lab_data": patient_data.get("lab_data", {})
             }
             results["clinical"] = self.clinical_agent.process(clinical_input)
+            time.sleep(0.5)  # Small delay to avoid rate limits
         except Exception as e:
-            results["errors"]["clinical"] = str(e)
+            results["errors"]["clinical"] = handle_agent_error("Clinical", e)
+            logger.warning(f"Clinical agent error: {e}")
 
         # 3. Process Pathology
         try:
             pathology_input = {"pathology": patient_data.get("pathology", {})}
             results["pathology"] = self.pathology_agent.process(pathology_input)
+            time.sleep(0.5)  # Small delay to avoid rate limits
         except Exception as e:
-            results["errors"]["pathology"] = str(e)
+            results["errors"]["pathology"] = handle_agent_error("Pathology", e)
+            logger.warning(f"Pathology agent error: {e}")
 
         # 4. Process Tumor Board
         try:
@@ -104,8 +125,10 @@ class AgentOrchestrator:
                     tumor_board_data, 
                     treatment_history_data
                 )
+                time.sleep(0.5)  # Small delay to avoid rate limits
         except Exception as e:
-            results["errors"]["tumor_board"] = str(e)
+            results["errors"]["tumor_board"] = handle_agent_error("Tumor Board", e)
+            logger.warning(f"Tumor Board agent error: {e}")
 
         # Generate culminated plan of action
         culminated_plan = self._generate_culminated_plan(results)
@@ -206,14 +229,27 @@ Return JSON with:
             import json
             plan = json.loads(response.choices[0].message.content)
             return plan
+        except (RateLimitError, APIError) as e:
+            # Handle rate limit/quota errors gracefully
+            logger.warning(f"OpenAI API error generating culminated plan: {e}")
+            # Fallback plan without LLM synthesis
+            return {
+                "summary": " ".join(findings[:2]) if findings else "Data processed successfully. Note: Comprehensive plan synthesis unavailable due to API limits.",
+                "recommendations": [
+                    "Review all agent outputs for comprehensive assessment",
+                    "Consider multidisciplinary tumor board discussion"
+                ],
+                "key_findings": findings[:5] if findings else []
+            }
         except Exception as e:
-            # Fallback plan
+            # Fallback plan for any other errors
+            logger.warning(f"Error generating culminated plan: {e}")
             return {
                 "summary": " ".join(findings[:2]) if findings else "Data processed successfully.",
                 "recommendations": [
                     "Review all agent outputs for comprehensive assessment",
                     "Consider multidisciplinary tumor board discussion"
                 ],
-                "key_findings": findings[:5]
+                "key_findings": findings[:5] if findings else []
             }
 
