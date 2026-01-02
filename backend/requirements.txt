@@ -4,3 +4,8 @@ sqlalchemy==2.0.29
 pydantic==2.6.1
 python-multipart==0.0.9
 openai==1.51.0
+pyjwt==2.8.0
+passlib==1.7.4
+python-dotenv==1.0.1
+google-auth==2.35.0
+email_validator==2.3.0

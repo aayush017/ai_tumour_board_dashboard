@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, File, UploadFile
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -9,7 +9,7 @@ import os
 from openai import OpenAI
 
 from database import SessionLocal, engine
-from models import PatientEntity, Base
+from models import PatientEntity, Base, User, UserRole, AllowListedEmail, AuditLog
 import schemas
 from services.specialist_agents import (
     SpecialistAgentError,
@@ -17,9 +17,51 @@ from services.specialist_agents import (
     generate_specialist_summary as run_specialist_agent,
 )
 from services.agent_orchestrator import AgentOrchestrator
+from auth import (
+    get_db as get_auth_db,
+    hash_password,
+    verify_password,
+    create_tokens,
+    set_auth_cookies,
+    clear_auth_cookies,
+    decode_token,
+    get_current_user,
+    require_user,
+    require_master,
+    verify_google_id_token,
+    log_audit_event,
+)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+
+def ensure_master_user():
+    """
+    Ensure initial master user exists with seeded credentials.
+    Email: aayush22011@iiitd.ac.in
+    Password: 123456 (hashed with bcrypt)
+    """
+    MASTER_EMAIL = "aayush22011@iiitd.ac.in"
+    MASTER_PASSWORD = "123456"
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == MASTER_EMAIL).first()
+        if not user:
+            pw_hash = hash_password(MASTER_PASSWORD)
+            master = User(
+                email=MASTER_EMAIL,
+                role=UserRole.master,
+                password_hash=pw_hash,
+            )
+            db.add(master)
+            db.commit()
+    finally:
+        db.close()
+
+
+ensure_master_user()
 
 def ensure_ground_truth_column():
     """Add the ground_truth column if the existing SQLite table predates this schema."""
@@ -47,7 +89,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency for database session
+# Dependency for database session (for legacy usage)
 def get_db():
     db = SessionLocal()
     try:
@@ -90,14 +132,319 @@ def build_patient_context(patient: PatientEntity) -> Dict[str, Any]:
 def read_root():
     return {"message": "Patient Entity Management API"}
 
+
+# ==========================
+# AUTHENTICATION ENDPOINTS
+# ==========================
+
+
+@app.post("/auth/login/master")
+def login_master(
+    request: Request,
+    form: schemas.MasterLoginRequest,
+    db: Session = Depends(get_auth_db),
+):
+    """
+    Email/password login for master user only.
+    """
+    user = db.query(User).filter(User.email == form.email).first()
+    if not user or user.role != UserRole.master or not verify_password(
+        form.password, user.password_hash or ""
+    ):
+        # Log failed attempt
+        log_audit_event(
+            db,
+            action="login_master",
+            request=request,
+            user=None,
+            role="master",
+            session_id=None,
+            success=False,
+            detail=f"Failed master login for {form.email}",
+        )
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token, refresh_token, session_id = create_tokens(user=user)
+    user.last_login_at = datetime.utcnow()
+    user.last_login_ip = request.client.host if request.client else None
+    db.commit()
+
+    response = {"message": "Master login successful", "role": user.role.value, "email": user.email}
+
+    # Create real Response to attach cookies in FastAPI automatically
+    from fastapi.responses import JSONResponse
+
+    res = JSONResponse(content=response)
+    set_auth_cookies(res, access_token, refresh_token)
+
+    log_audit_event(
+        db,
+        action="login_master",
+        request=request,
+        user=user,
+        role=user.role.value,
+        session_id=session_id,
+        success=True,
+    )
+    return res
+
+
+@app.post("/auth/login/google")
+def login_google(
+    request: Request,
+    payload: schemas.GoogleLoginRequest,
+    db: Session = Depends(get_auth_db),
+):
+    """
+    Google OAuth-based login.
+    Expects an ID token from the frontend, verifies it, and checks allow-list.
+    """
+    email = verify_google_id_token(payload.id_token)
+
+    # Check allow-list
+    allowed = db.query(AllowListedEmail).filter(AllowListedEmail.email == email).first()
+    if not allowed:
+        log_audit_event(
+            db,
+            action="login_google",
+            request=request,
+            user=None,
+            role="user",
+            session_id=None,
+            success=False,
+            detail=f"Google login attempted for non-allow-listed email {email}",
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="This email is not authorized to access the dashboard.",
+        )
+
+    # Ensure user exists
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(email=email, role=UserRole.user, password_hash=None)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token, refresh_token, session_id = create_tokens(user=user)
+    user.last_login_at = datetime.utcnow()
+    user.last_login_ip = request.client.host if request.client else None
+    db.commit()
+
+    from fastapi.responses import JSONResponse
+
+    res = JSONResponse(
+        content={"message": "Login successful", "role": user.role.value, "email": user.email}
+    )
+    set_auth_cookies(res, access_token, refresh_token)
+
+    log_audit_event(
+        db,
+        action="login_google",
+        request=request,
+        user=user,
+        role=user.role.value,
+        session_id=session_id,
+        success=True,
+    )
+    return res
+
+
+@app.post("/auth/refresh")
+def refresh_token(request: Request, db: Session = Depends(get_auth_db)):
+    """
+    Refresh access token using refresh_token cookie.
+    """
+    token = request.cookies.get("refresh_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="No refresh token")
+
+    payload = decode_token(token, expected_type="refresh")
+    user_id = payload.get("sub")
+    role = payload.get("role")
+    session_id = payload.get("sid")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role.value != role:
+        raise HTTPException(status_code=401, detail="Invalid user")
+
+    access_token, refresh_token, new_session_id = create_tokens(user=user, session_id=session_id)
+
+    from fastapi.responses import JSONResponse
+
+    res = JSONResponse(
+        content={"message": "Token refreshed", "role": user.role.value, "email": user.email}
+    )
+    set_auth_cookies(res, access_token, refresh_token)
+
+    log_audit_event(
+        db,
+        action="refresh",
+        request=request,
+        user=user,
+        role=user.role.value,
+        session_id=new_session_id,
+        success=True,
+    )
+    return res
+
+
+@app.post("/auth/logout")
+def logout(
+    request: Request,
+    db: Session = Depends(get_auth_db),
+    user_ctx=Depends(get_current_user),
+):
+    user, role, session_id = user_ctx
+
+    from fastapi.responses import JSONResponse
+
+    res = JSONResponse(content={"message": "Logged out"})
+    clear_auth_cookies(res)
+
+    log_audit_event(
+        db,
+        action="logout",
+        request=request,
+        user=user,
+        role=role,
+        session_id=session_id,
+        success=True,
+    )
+    return res
+
+
+@app.get("/auth/me")
+def auth_me(user_ctx=Depends(get_current_user)):
+    user, role, session_id = user_ctx
+    return {"email": user.email, "role": role, "session_id": session_id}
+
+
+# ==========================
+# MASTER ADMIN ENDPOINTS
+# ==========================
+
+
+@app.post("/admin/change-password")
+def change_master_password(
+    request: Request,
+    payload: schemas.ChangePasswordRequest,
+    db: Session = Depends(get_auth_db),
+    master_ctx=Depends(require_master),
+):
+    user, role, session_id = master_ctx
+
+    if not verify_password(payload.current_password, user.password_hash or ""):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+
+    log_audit_event(
+        db,
+        action="change_password",
+        request=request,
+        user=user,
+        role=role,
+        session_id=session_id,
+        success=True,
+    )
+    return {"message": "Password updated successfully"}
+
+
+@app.get("/admin/allow-list")
+def list_allow_list(
+    db: Session = Depends(get_auth_db),
+    master_ctx=Depends(require_master),
+):
+    entries = db.query(AllowListedEmail).order_by(AllowListedEmail.created_at.desc()).all()
+    return [
+        {"id": e.id, "email": e.email, "created_at": e.created_at.isoformat()}
+        for e in entries
+    ]
+
+
+@app.post("/admin/allow-list")
+def add_allow_list_entry(
+    payload: schemas.AllowListEntryCreate,
+    db: Session = Depends(get_auth_db),
+    master_ctx=Depends(require_master),
+):
+    user, role, session_id = master_ctx
+
+    existing = db.query(AllowListedEmail).filter(AllowListedEmail.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already in allow-list")
+
+    entry = AllowListedEmail(email=payload.email, added_by_user_id=user.id)
+    db.add(entry)
+    db.commit()
+
+    return {"id": entry.id, "email": entry.email, "created_at": entry.created_at.isoformat()}
+
+
+@app.delete("/admin/allow-list/{entry_id}")
+def remove_allow_list_entry(
+    entry_id: str,
+    db: Session = Depends(get_auth_db),
+    master_ctx=Depends(require_master),
+):
+    entry = db.query(AllowListedEmail).filter(AllowListedEmail.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    db.delete(entry)
+    db.commit()
+    return {"message": "Entry removed"}
+
+
+@app.get("/admin/audit-logs")
+def get_audit_logs(
+    limit: int = 100,
+    db: Session = Depends(get_auth_db),
+    master_ctx=Depends(require_master),
+):
+    limit = max(1, min(limit, 500))
+    logs = (
+        db.query(AuditLog)
+        .order_by(AuditLog.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": log.id,
+            "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+            "user_email": log.user_email,
+            "role": log.role,
+            "ip_address": log.ip_address,
+            "route": log.route,
+            "method": log.method,
+            "session_id": log.session_id,
+            "action": log.action,
+            "success": log.success,
+            "detail": log.detail,
+        }
+        for log in logs
+    ]
+
 @app.get("/api/patients", response_model=List[schemas.PatientResponse])
-def get_all_patients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_all_patients(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
     """Get all patient entities"""
     patients = db.query(PatientEntity).offset(skip).limit(limit).all()
     return patients
 
 @app.get("/api/patients/{case_id}", response_model=schemas.PatientResponse)
-def get_patient(case_id: str, db: Session = Depends(get_db)):
+def get_patient(
+    case_id: str,
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
     """Get a specific patient by case_id"""
     patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
     if not patient:
@@ -105,7 +452,11 @@ def get_patient(case_id: str, db: Session = Depends(get_db)):
     return patient
 
 @app.post("/api/patients", response_model=schemas.PatientResponse)
-def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)):
+def create_patient(
+    patient: schemas.PatientCreate,
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
     """Create a new patient entity"""
     # Check if case_id already exists
     existing = db.query(PatientEntity).filter(PatientEntity.case_id == patient.case_id).first()
@@ -119,7 +470,12 @@ def create_patient(patient: schemas.PatientCreate, db: Session = Depends(get_db)
     return db_patient
 
 @app.put("/api/patients/{case_id}", response_model=schemas.PatientResponse)
-def update_patient(case_id: str, patient_update: schemas.PatientUpdate, db: Session = Depends(get_db)):
+def update_patient(
+    case_id: str,
+    patient_update: schemas.PatientUpdate,
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
     """Update an existing patient entity"""
     db_patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
     if not db_patient:
@@ -135,7 +491,11 @@ def update_patient(case_id: str, patient_update: schemas.PatientUpdate, db: Sess
     return db_patient
 
 @app.delete("/api/patients/{case_id}")
-def delete_patient(case_id: str, db: Session = Depends(get_db)):
+def delete_patient(
+    case_id: str,
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
     """Delete a patient entity"""
     db_patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
     if not db_patient:
@@ -146,7 +506,11 @@ def delete_patient(case_id: str, db: Session = Depends(get_db)):
     return {"message": "Patient deleted successfully"}
 
 @app.get("/api/patients/{case_id}/lab-timeline")
-def get_lab_timeline(case_id: str, db: Session = Depends(get_db)):
+def get_lab_timeline(
+    case_id: str,
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
     """Get lab data timeline for a patient"""
     patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
     if not patient:
@@ -243,6 +607,7 @@ def get_lab_timeline(case_id: str, db: Session = Depends(get_db)):
 def generate_agent_summary(
     case_id: str,
     db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
 ):
     """
     Generate comprehensive agent summary using all four agents:
@@ -286,6 +651,7 @@ def generate_specialist_summary(
     case_id: str,
     specialist: schemas.SpecialistType,
     db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
 ):
     """
     [DEPRECATED] Generate an AI-assisted diagnosis and plan for a given specialist.

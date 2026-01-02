@@ -7,7 +7,23 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Include cookies in all requests
 })
+
+// Add response interceptor to handle 401 errors
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Clear any stale auth state
+      if (window.location.pathname !== '/login' && window.location.pathname !== '/master/login') {
+        // Only redirect if not already on a login page
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  }
+)
 
 export const getPatients = async () => {
   const response = await api.get('/api/patients')

@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, EmailStr
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -253,6 +253,29 @@ class PatientResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+# =====================
+# Auth / Admin Schemas
+# =====================
+
+
+class MasterLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class AllowListEntryCreate(BaseModel):
+    email: EmailStr
 
 class SpecialistType(str, Enum):
     oncologist = "oncologist"
