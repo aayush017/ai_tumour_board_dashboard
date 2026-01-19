@@ -64,3 +64,13 @@ export const generateAgentSummary = async (caseId) => {
   const response = await api.post(`/api/patients/${caseId}/agent-summary`)
   return response.data
 }
+
+export const previewAgentSummary = async (caseId) => {
+  const response = await api.post(`/api/patients/${caseId}/agent-summary/preview`)
+  return response.data
+}
+
+export const approveAgentSummary = async (caseId, agentOutput) => {
+  const response = await api.post(`/api/patients/${caseId}/agent-summary/approve`, agentOutput)
+  return response.data
+}

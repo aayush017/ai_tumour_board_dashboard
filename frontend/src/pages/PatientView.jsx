@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Edit, ArrowLeft, BarChart3 } from 'lucide-react'
-import { getPatient, getLabTimeline, generateSpecialistSummary, generateAgentSummary } from '../utils/api'
+import { Edit, ArrowLeft, BarChart3, Check } from 'lucide-react'
+import { getPatient, getLabTimeline, generateSpecialistSummary, generateAgentSummary, previewAgentSummary, approveAgentSummary } from '../utils/api'
 import LabChart from '../components/LabChart'
 
 const labBaselineFields = [
@@ -34,6 +34,12 @@ export default function PatientView() {
   const [agentSummary, setAgentSummary] = useState(null)
   const [agentSummaryLoading, setAgentSummaryLoading] = useState(false)
   const [agentSummaryError, setAgentSummaryError] = useState(null)
+  const [agentPreview, setAgentPreview] = useState(null)
+  const [agentPreviewLoading, setAgentPreviewLoading] = useState(false)
+  const [agentPreviewError, setAgentPreviewError] = useState(null)
+  const [editableAgentOutput, setEditableAgentOutput] = useState(null)
+  const [approveLoading, setApproveLoading] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   const specialistOptions = [
     { id: 'oncologist', label: 'Oncologist' },
@@ -122,6 +128,65 @@ export default function PatientView() {
     } finally {
       setAgentSummaryLoading(false)
     }
+  }
+
+  const handlePreviewAgentSummary = async () => {
+    if (agentPreviewLoading || agentPreview) return
+
+    setAgentPreviewLoading(true)
+    setAgentPreviewError(null)
+    setShowPreview(true)
+
+    try {
+      const data = await previewAgentSummary(caseId)
+      setAgentPreview(data)
+      setEditableAgentOutput(JSON.parse(JSON.stringify(data))) // Deep copy for editing
+    } catch (err) {
+      console.error('Error generating agent preview:', err)
+      setAgentPreviewError(err.response?.data?.detail || err.message || 'Failed to generate agent preview')
+    } finally {
+      setAgentPreviewLoading(false)
+    }
+  }
+
+  const handleApproveAgentSummary = async () => {
+    if (!editableAgentOutput || approveLoading) return
+
+    setApproveLoading(true)
+    setAgentSummaryError(null)
+
+    try {
+      const data = await approveAgentSummary(caseId, editableAgentOutput)
+      setAgentSummary(data)
+      setShowPreview(false)
+      setAgentPreview(null)
+      setEditableAgentOutput(null)
+    } catch (err) {
+      console.error('Error approving agent summary:', err)
+      setAgentSummaryError(err.response?.data?.detail || err.message || 'Failed to approve and process agent summary')
+    } finally {
+      setApproveLoading(false)
+    }
+  }
+
+  const handleCancelPreview = () => {
+    setShowPreview(false)
+    setAgentPreview(null)
+    setEditableAgentOutput(null)
+  }
+
+  const updateEditableField = (path, value) => {
+    setEditableAgentOutput((prev) => {
+      const newData = JSON.parse(JSON.stringify(prev))
+      const keys = path.split('.')
+      let current = newData
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) current[keys[i]] = {}
+        current = current[keys[i]]
+      }
+      current[keys[keys.length - 1]] = value
+      return newData
+    })
   }
 
   const renderSummaryCard = (summary) => {
@@ -349,32 +414,98 @@ export default function PatientView() {
               <h2 className="text-xl font-semibold">Comprehensive Agent Analysis</h2>
               <p className="text-sm text-gray-500">
                 Generate a comprehensive analysis using all four agents: Radiology, Clinical, Pathology, and Tumor Board.
+                Review and edit agent outputs before proceeding to tumor board analysis (human-in-the-loop).
               </p>
             </div>
           </div>
           
-          {!agentSummary && !agentSummaryLoading && (
-            <button
-              type="button"
-              onClick={handleLoadAgentSummary}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              Generate Comprehensive Analysis
-            </button>
+          {/* Action Buttons */}
+          {!agentSummary && !showPreview && !agentSummaryLoading && !agentPreviewLoading && (
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handlePreviewAgentSummary}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Preview Agent Output (Human-in-the-Loop)
+              </button>
+              <button
+                type="button"
+                onClick={handleLoadAgentSummary}
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors shadow-sm"
+              >
+                Generate Complete Analysis (Auto)
+              </button>
+            </div>
           )}
 
-          {agentSummaryLoading && (
-            <div className="text-gray-600 text-sm py-4">Generating comprehensive analysis... This may take a moment.</div>
+          {(agentSummaryLoading || agentPreviewLoading) && (
+            <div className="text-gray-600 text-sm py-4">Generating agent analysis... This may take a moment.</div>
           )}
 
-          {agentSummaryError && (
+          {(agentSummaryError || agentPreviewError) && (
             <div className="text-red-600 text-sm py-4 bg-red-50 rounded-lg p-4">
-              <strong>Error:</strong> {agentSummaryError}
-              {agentSummaryError.includes("quota") || agentSummaryError.includes("rate limit") ? (
+              <strong>Error:</strong> {agentSummaryError || agentPreviewError}
+              {(agentSummaryError || agentPreviewError || '').includes("quota") || (agentSummaryError || agentPreviewError || '').includes("rate limit") ? (
                 <div className="mt-2 text-xs text-red-700">
                   Note: Your OpenAI API quota has been exceeded. Please check your billing or wait before retrying.
                 </div>
               ) : null}
+            </div>
+          )}
+
+          {/* Preview/Edit Interface */}
+          {showPreview && editableAgentOutput && (
+            <div className="mt-6 border-t pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-blue-600">Review and Edit Agent Output</h3>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelPreview}
+                    className="px-4 py-2 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApproveAgentSummary}
+                    disabled={approveLoading}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {approveLoading ? 'Processing...' : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Approve & Continue
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Instructions:</strong> Review the agent outputs below. You can edit any field by clicking on it.
+                  Once you're satisfied, click "Approve & Continue to Tumor Board" to proceed with tumor board analysis.
+                </p>
+              </div>
+
+              {/* Editable Agent Output */}
+              <div className="space-y-4 max-h-[600px] overflow-y-auto border rounded-lg p-4 bg-gray-50">
+                <textarea
+                  value={JSON.stringify(editableAgentOutput, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value)
+                      setEditableAgentOutput(parsed)
+                    } catch (err) {
+                      // Invalid JSON, keep the text value for now
+                    }
+                  }}
+                  className="w-full h-full font-mono text-sm p-4 bg-white border rounded resize-none"
+                  style={{ minHeight: '500px' }}
+                />
+              </div>
             </div>
           )}
 

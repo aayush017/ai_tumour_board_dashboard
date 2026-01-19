@@ -603,6 +603,99 @@ def get_lab_timeline(
 
     return {"timeline": deduped}
 
+@app.post("/api/patients/{case_id}/agent-summary/preview")
+def preview_agent_summary(
+    case_id: str,
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
+    """
+    Generate agent summary preview (Steps 1-2):
+    1. Processes three agents (Radiology, Clinical, Pathology)
+    2. Formats output in structured format (similar to sampleOUTPUTpatient.json)
+    
+    Returns formatted output ready for user review and editing before proceeding to tumor board analysis.
+    This enables human-in-the-loop workflow where users can review and correct agent outputs.
+    """
+    patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    patient_context = build_patient_context(patient)
+    if not patient_context:
+        raise HTTPException(
+            status_code=400,
+            detail="Patient data is insufficient to generate agent summaries.",
+        )
+
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="OPENAI_API_KEY is not configured on the server."
+            )
+        
+        # Optional: Pass PDF path for tumor board system if configured
+        tumor_board_pdf_path = os.getenv("INASL_PDF_PATH")
+        orchestrator = AgentOrchestrator(
+            openai_api_key=api_key,
+            tumor_board_pdf_path=tumor_board_pdf_path
+        )
+        result = orchestrator.process_agents(patient_context)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error generating agent preview: {str(exc)}") from exc
+
+@app.post("/api/patients/{case_id}/agent-summary/approve")
+def approve_agent_summary(
+    case_id: str,
+    agent_output: Dict[str, Any],
+    db: Session = Depends(get_db),
+    user_ctx=Depends(require_user),
+):
+    """
+    Approve and continue with tumor board analysis (Steps 3-4):
+    1. Takes reviewed/edited agent output from preview stage
+    2. Feeds to HCC Tumor Board System (if configured via INASL_PDF_PATH)
+    3. Processes Tumor Board Summary Agent
+    4. Returns complete output including tumor board analysis and summary
+    
+    Args:
+        agent_output: The formatted output from preview stage (may have been edited by user)
+    
+    Optional: Configure INASL_PDF_PATH environment variable to enable HCC tumor board system analysis.
+    """
+    patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    patient_context = build_patient_context(patient)
+    if not patient_context:
+        raise HTTPException(
+            status_code=400,
+            detail="Patient data is insufficient to proceed with tumor board analysis.",
+        )
+
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="OPENAI_API_KEY is not configured on the server."
+            )
+        
+        # Optional: Pass PDF path for tumor board system if configured
+        tumor_board_pdf_path = os.getenv("INASL_PDF_PATH")
+        orchestrator = AgentOrchestrator(
+            openai_api_key=api_key,
+            tumor_board_pdf_path=tumor_board_pdf_path
+        )
+        result = orchestrator.process_tumor_board(agent_output, patient_context)
+        return result
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error processing tumor board analysis: {str(exc)}") from exc
+
 @app.post("/api/patients/{case_id}/agent-summary")
 def generate_agent_summary(
     case_id: str,
@@ -610,12 +703,14 @@ def generate_agent_summary(
     user_ctx=Depends(require_user),
 ):
     """
-    Generate comprehensive agent summary using sequential processing:
+    [BACKWARD COMPATIBLE] Generate comprehensive agent summary using sequential processing:
     1. Processes three agents (Radiology, Clinical, Pathology)
     2. Formats output in structured format (similar to sampleOUTPUTpatient.json)
     3. Feeds to HCC Tumor Board System (if configured via INASL_PDF_PATH)
     4. Processes Tumor Board Summary Agent
     5. Returns all outputs including individual agent responses, tumor board analysis, and summary
+    
+    For human-in-the-loop workflow, use /preview and /approve endpoints instead.
     
     Optional: Configure INASL_PDF_PATH environment variable to enable HCC tumor board system analysis.
     """

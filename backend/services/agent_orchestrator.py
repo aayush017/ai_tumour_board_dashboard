@@ -228,21 +228,17 @@ class AgentOrchestrator:
 
     
     #Initializing the processing pipeline
-    def process_all(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+    def process_agents(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Sequential processing pipeline:
-        1. Process three agents (radiology, clinical, pathology)
-        2. Format output in sampleOUTPUTpatient.json format
-        3. Feed to HCC tumor board system
-        4. Process tumor board summary agent
-        5. Return all outputs
+        Process three agents (Step 1) and format output (Step 2).
+        This is the preview stage where output can be reviewed and edited before tumor board processing.
         
         Args:
             patient_data: Full patient data including demographics, clinical, lab_data,
                          radiology, pathology, treatment_history, tumor_board
         
         Returns:
-            Structured output with all stages of processing
+            Formatted output in sampleOUTPUTpatient.json format, ready for review
         """
         errors = {}
         
@@ -357,6 +353,44 @@ class AgentOrchestrator:
         # Add errors if any
         if errors:
             agent_output["errors"] = errors
+        
+        logger.info("✅ Agent processing and formatting completed - ready for review")
+        return agent_output
+    
+    def process_tumor_board(
+        self, 
+        agent_output: Dict[str, Any], 
+        patient_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Process tumor board system (Step 3) and tumor board summary (Step 4).
+        This is called after user review and approval of agent outputs.
+        
+        Args:
+            agent_output: Formatted output from process_agents() (may have been edited by user)
+            patient_data: Original patient data (needed for tumor board summary)
+        
+        Returns:
+            Complete output including tumor board results and summary
+        """
+        errors = {}
+        
+        # Helper to handle errors with better messages
+        def handle_agent_error(agent_name: str, error: Exception) -> str:
+            """Format error messages for better user experience."""
+            error_str = str(error)
+            if "429" in error_str or "quota" in error_str.lower() or "rate limit" in error_str.lower():
+                return f"OpenAI API rate limit/quota exceeded. Please check your API plan and billing."
+            elif "insufficient_quota" in error_str:
+                return f"OpenAI API quota exceeded. Please check your billing details."
+            else:
+                return f"{agent_name} processing failed: {error_str[:200]}"
+        
+        # Extract individual agent results from agent_output
+        individual_responses = agent_output.get("individual_agent_responses", {})
+        radiology_result = individual_responses.get("radiology")
+        clinical_result = individual_responses.get("clinical")
+        pathology_result = individual_responses.get("pathology")
 
         # ============================================================
         # STEP 3: Feed to HCC Tumor Board System
@@ -420,6 +454,62 @@ class AgentOrchestrator:
             error_msg = handle_agent_error("Tumor Board Summary", e)
             errors["tumor_board_summary"] = error_msg
             logger.error(f"❌ Tumor board summary agent error: {e}")
+        
+        # Combine errors from agent_output if any
+        if agent_output.get("errors"):
+            errors.update(agent_output["errors"])
+        
+        # Build final output similar to process_all
+        final_output = self._compile_final_output(
+            agent_output,
+            radiology_result,
+            clinical_result,
+            pathology_result,
+            tumor_board_result,
+            tumor_board_summary_result,
+            errors
+        )
+        
+        logger.info("✅ Tumor board processing completed")
+        return final_output
+    
+    def process_all(self, patient_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Sequential processing pipeline (backward compatible):
+        1. Process three agents (radiology, clinical, pathology)
+        2. Format output in sampleOUTPUTpatient.json format
+        3. Feed to HCC tumor board system
+        4. Process tumor board summary agent
+        5. Return all outputs
+        
+        This method calls process_agents() and process_tumor_board() sequentially.
+        For human-in-the-loop workflow, use process_agents() and process_tumor_board() separately.
+        
+        Args:
+            patient_data: Full patient data including demographics, clinical, lab_data,
+                         radiology, pathology, treatment_history, tumor_board
+        
+        Returns:
+            Structured output with all stages of processing
+        """
+        # Step 1-2: Process agents and format output
+        agent_output = self.process_agents(patient_data)
+        
+        # Step 3-4: Process tumor board system and summary
+        final_output = self.process_tumor_board(agent_output, patient_data)
+        
+        return final_output
+    
+    def _compile_final_output(
+        self,
+        agent_output: Dict[str, Any],
+        radiology_result: Optional[Dict[str, Any]],
+        clinical_result: Optional[Dict[str, Any]],
+        pathology_result: Optional[Dict[str, Any]],
+        tumor_board_result: Optional[Dict[str, Any]],
+        tumor_board_summary_result: Optional[Dict[str, Any]],
+        errors: Dict[str, str]
+    ) -> Dict[str, Any]:
 
         # ============================================================
         # STEP 5: Compile final output (Backward compatible + new structure)
