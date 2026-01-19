@@ -487,19 +487,97 @@ export default function PatientView() {
                     </div>
                   )}
 
-                  {/* Tumor Board */}
+                  {/* Tumor Board Summary */}
                   {agentSummary.agent_responses?.tumor_board && (
                     <div className="border rounded-lg p-4">
-                      <h4 className="font-semibold text-orange-600 mb-2">Tumor Board Agent</h4>
+                      <h4 className="font-semibold text-orange-600 mb-2">Tumor Board Summary Agent</h4>
                       {agentSummary.agent_responses.tumor_board.notes_summary?.tumor_board_text && (
-                        <p className="text-gray-700 text-sm">
+                        <p className="text-gray-700 text-sm whitespace-pre-wrap">
                           {agentSummary.agent_responses.tumor_board.notes_summary.tumor_board_text}
                         </p>
+                      )}
+                      {agentSummary.agent_responses.tumor_board.notes_summary?.treatment_history && (
+                        <div className="mt-3 text-sm">
+                          <strong>Treatment History:</strong>
+                          <ul className="list-disc list-inside ml-2 mt-1">
+                            {agentSummary.agent_responses.tumor_board.notes_summary.treatment_history.previous?.map((t, idx) => (
+                              <li key={idx}>{t}</li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* HCC Tumor Board System Output */}
+              {agentSummary.structured_outputs?.tumor_board_output && (
+                <div className="border-t pt-6 mt-6">
+                  <h3 className="text-lg font-semibold mb-4 text-indigo-600">HCC Tumor Board System Analysis</h3>
+                  <div className="border rounded-lg p-4 bg-indigo-50">
+                    {agentSummary.structured_outputs.tumor_board_output.final_recommendation?.patient_summary && (
+                      <div className="mb-4">
+                        <h4 className="font-semibold mb-2">Patient Summary</h4>
+                        <div className="text-sm space-y-1">
+                          <div><strong>BCLC Stage:</strong> {agentSummary.structured_outputs.tumor_board_output.final_recommendation.patient_summary.bclc_stage}</div>
+                          <div><strong>Treatment Intent:</strong> {agentSummary.structured_outputs.tumor_board_output.final_recommendation.patient_summary.treatment_intent}</div>
+                          <div><strong>Liver Status:</strong> {agentSummary.structured_outputs.tumor_board_output.final_recommendation.patient_summary.compensation_status}</div>
+                        </div>
+                      </div>
+                    )}
+                    {agentSummary.structured_outputs.tumor_board_output.consensus_plan && (
+                      <div className="mb-4">
+                        <h4 className="font-semibold mb-2">Consensus Plan</h4>
+                        <p className="text-gray-700 text-sm whitespace-pre-wrap">
+                          {agentSummary.structured_outputs.tumor_board_output.consensus_plan}
+                        </p>
+                      </div>
+                    )}
+                    {agentSummary.structured_outputs.tumor_board_output.final_recommendation?.critical_flags && 
+                     agentSummary.structured_outputs.tumor_board_output.final_recommendation.critical_flags.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="font-semibold mb-2 text-red-600">Critical Flags</h4>
+                        <ul className="list-disc list-inside text-sm text-red-700">
+                          {agentSummary.structured_outputs.tumor_board_output.final_recommendation.critical_flags.map((flag, idx) => (
+                            <li key={idx}>{flag}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Processing Metadata */}
+              {agentSummary.processing_metadata && (
+                <div className="border-t pt-6 mt-6">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-600">Processing Status</h3>
+                  <div className="border rounded-lg p-4 bg-gray-50 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <strong>Stages Completed:</strong>
+                        <ul className="list-disc list-inside ml-2 mt-1">
+                          <li>Three Agents: {agentSummary.processing_metadata.stages_completed?.three_agents ? '✓' : '✗'}</li>
+                          <li>Tumor Board System: {agentSummary.processing_metadata.stages_completed?.tumor_board_system ? '✓' : '✗'}</li>
+                          <li>Tumor Board Summary: {agentSummary.processing_metadata.stages_completed?.tumor_board_summary ? '✓' : '✗'}</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <strong>System Status:</strong>
+                        <ul className="list-disc list-inside ml-2 mt-1">
+                          <li>Tumor Board System: {agentSummary.processing_metadata.tumor_board_system_available ? 'Available' : 'Not Available'}</li>
+                        </ul>
+                        {!agentSummary.processing_metadata.tumor_board_system_available && (
+                          <p className="text-xs text-orange-600 mt-2">
+                            Note: Tumor board system requires INASL_PDF_PATH configuration
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

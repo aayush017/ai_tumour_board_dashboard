@@ -17,6 +17,7 @@ const labFieldConfig = [
   { key: 'creatinine_mg_dl', label: 'Creatinine (mg/dL)' },
   { key: 'AFP_ng_ml', label: 'AFP (ng/mL)' },
   { key: 'CRP_mg_L', label: 'CRP (mg/L)' },
+  { key: 'PIVKA_II_mAU_ml', label: 'PIVKA-II (mAU/mL)' },
 ]
 
 const modalityOptions = ['CT Triphasic', 'CT with contrast', 'MRI Liver', 'USG']

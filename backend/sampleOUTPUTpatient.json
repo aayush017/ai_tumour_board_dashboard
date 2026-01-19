@@ -1,0 +1,210 @@
+{
+  "clinical_summary": {
+    "etiology": "HCV-related cirrhosis",
+    "symptoms": [
+      "Decompensated cirrhosis (no ascites)",
+      "No abdominal pain",
+      "No weight loss",
+      "No palpable abdominal mass"
+    ],
+    "comorbidities": ["Type 2 Diabetes Mellitus", "Hypertension"],
+    "ascites": "none",
+    "encephalopathy": "none",
+    "ECOG": 0,
+    "labs_baseline": {
+      "hemoglobin_g_dl": 11.4,
+      "WBC_k": 6.25,
+      "platelets_k": 88.0,
+      "total_bilirubin_mg_dl": 1.2,
+      "direct_bilirubin_mg_dl": 0.38,
+      "AST_U_L": 55.0,
+      "ALT_U_L": 29.0,
+      "ALP_U_L": 170.4,
+      "albumin_g_dl": 2.87,
+      "INR": 1.2,
+      "PT_sec": 13.9,
+      "Na_mmol_L": 136.0,
+      "creatinine_mg_dl": 0.78,
+      "AFP_ng_ml": 33.78,
+      "CRP_mg_L": null
+    },
+    "labs_time_series": [],
+    "derived_scores": {
+      "Child_Pugh": {
+        "score": 6,
+        "class": "A",
+        "components": {
+          "bilirubin": 1,
+          "albumin": 2,
+          "INR": 1,
+          "ascites": 1,
+          "encephalopathy": 1
+        }
+      },
+      "MELD": 9,
+      "MELD_Na": 7,
+      "ALBI": {
+        "score": -1.573,
+        "grade": 2
+      }
+    },
+    "lab_flags": {
+      "hemoglobin_g_dl": "low",
+      "WBC_k": "normal",
+      "platelets_k": "low",
+      "total_bilirubin_mg_dl": "normal",
+      "direct_bilirubin_mg_dl": "high",
+      "AST_U_L": "high",
+      "ALT_U_L": "normal",
+      "ALP_U_L": "high",
+      "albumin_g_dl": "low",
+      "INR": "normal",
+      "PT_sec": "normal",
+      "Na_mmol_L": "normal",
+      "creatinine_mg_dl": "normal",
+      "AFP_ng_ml": "high",
+      "CRP_mg_L": null
+    },
+    "clinical_interpretation": "The patient has HCV-related cirrhosis with a Child-Pugh score of 6, indicating compensated liver function, and a MELD-Na score of 7, suggesting relatively preserved hepatic function. The absence of ascites and encephalopathy, along with no reported symptoms of abdominal pain or weight loss, supports a stable clinical status. The elevated AFP level of 33.78 ng/ml is notable and may warrant further evaluation for hepatocellular carcinoma. Baseline lab abnormalities include low hemoglobin and platelets, high direct bilirubin, AST, and ALP, and low albumin.\n\nNo follow-up lab data available."
+  },
+  "agent_metadata": {
+    "clinical_agent_confidence": 0.94
+  },
+  "ground_truth": {
+    "clinical_scores": {
+      "Child_Pugh": {
+        "score": 6,
+        "class": "A"
+      },
+      "MELD": null,
+      "MELD_Na": null,
+      "ALBI": {
+        "score": null,
+        "grade": null
+      }
+    }
+  },
+  "radiology_summary": {
+    "studies": [
+      {
+        "date": null,
+        "modality": "CT / MRI Multiphasic (LI-RADS Assessment)",
+        "lesions": [
+          {
+            "lesion_id": "L1",
+            "segment": null,
+            "size_cm": {
+              "longest_diameter_cm": 4.5,
+              "transverse_cm": null
+            },
+            "enhancement_features": {
+              "arterial_phase_hyperenhancement": true,
+              "washout": true,
+              "enhancing_capsule": null,
+              "threshold_growth": null
+            },
+            "ground_truth_li_rads": "LR-5",
+            "derived_li_rads": "LR-5",
+            "pvtt": false,
+            "extrahepatic_metastasis": false,
+            "treated": false
+          }
+        ],
+        "radiology_report_text": "Single hepatic lesion measuring 4.5 cm demonstrating arterial phase hyperenhancement with washout. Classified as LI-RADS LR-5. No portal vein tumor thrombus noted.",
+        "overall_derived_li_rads": "LR-5"
+      },
+      {
+        "date": null,
+        "modality": "Post-TACE follow-up imaging",
+        "lesions": [
+          {
+            "lesion_id": "L1",
+            "segment": null,
+            "size_cm": {
+              "longest_diameter_cm": null,
+              "transverse_cm": null
+            },
+            "enhancement_features": {
+              "arterial_phase_hyperenhancement": true,
+              "washout": null,
+              "enhancing_capsule": null,
+              "threshold_growth": null
+            },
+            "ground_truth_li_rads": "LR-TR-Viable",
+            "derived_li_rads": "LR-TR-Viable",
+            "pvtt": false,
+            "extrahepatic_metastasis": false,
+            "treated": true
+          }
+        ],
+        "radiology_report_text": "Post-treatment imaging demonstrates partial response with residual viable enhancing tumor consistent with LR-TR Viable.",
+        "overall_derived_li_rads": "LR-TR-Viable"
+      }
+    ],
+    "temporal_response": {
+      "mRECIST": {
+        "category": "INSUFFICIENT_DATA: current_study_size_missing",
+        "baseline_viable_diameter_cm": 4.5,
+        "current_viable_diameter_cm": null,
+        "percent_change": null
+      },
+      "LI_RADS_TR": "LR-TR-Viable"
+    },
+    "tumor_burden": {
+      "metric": "TBS",
+      "value": 4.61
+    },
+    "radiology_interpretation": "Baseline LR-5 lesion measuring 4.5 cm. Treatment response assessment limited by incomplete follow-up imaging data.",
+    "agent_metadata": {
+      "radiology_agent_confidence": 0.9
+    }
+  },
+  "pathology_summary": {
+    "biopsy_performed": false,
+    "histology": {
+      "diagnosis": null,
+      "differentiation": null,
+      "fibrosis_stage": null,
+      "steatosis_percent": null,
+      "steatosis_grade": null,
+      "lobular_inflammation": null,
+      "ballooning": null,
+      "vascular_invasion": null,
+      "comments": "No biopsy performed."
+    },
+    "molecular_profile": {
+      "TERT_promoter_mutation": "not_reported",
+      "TP53_mutation": "not_reported",
+      "CTNNB1_mutation": "not_reported",
+      "MSI_status": "not_reported",
+      "PDL1_IHC": "not_reported",
+      "TMB": "not_reported"
+    },
+    "source_text": {
+      "pathology_report_text": "",
+      "molecular_profile_text": ""
+    },
+    "pathology_interpretation": "No biopsy performed; pathology data unavailable.",
+    "agent_metadata": {
+      "pathology_agent_confidence": 1.0
+    }
+  },
+
+  "notes_summary": {
+    "tumor_board_text": "The tumor board, comprising hepatologists, hepatobiliary surgeons, interventional radiologists, medical oncologists, radiation oncologists, pathologists, and radiologists, discussed a case of HCV-related cirrhosis with a 4.5 cm LI-RADS LR-5 HCC, classified as Child-Pugh class A and BCLC stage A. Initial treatment with TACE resulted in a partial response, but imaging revealed a viable residual tumor. The board recommended repeating locoregional therapy if feasible, with systemic immunotherapy as a contingency for disease progression. Regular monitoring with AFP, PIVKA-II, and contrast-enhanced CT/MRI every 2-3 months was advised.",
+    "treatment_history": {
+      "previous": ["TACE"],
+      "current": "",
+      "response": "Partial response with viable residual tumor."
+    },
+    "board_members": [
+      "Hepatologist",
+      "Hepatobiliary Surgeon",
+      "Interventional Radiologist",
+      "Medical Oncologist",
+      "Radiation Oncologist",
+      "Pathologist",
+      "Radiologist"
+    ]
+  }
+}

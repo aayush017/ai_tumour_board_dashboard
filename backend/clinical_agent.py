@@ -1,5 +1,8 @@
 """
-ClinicalDataAgent 
+ClinicalDataAgent (updated)
+- Baseline labs used for derived scores
+- Lab flags include PT_sec (range loaded from parameters.xlsx if available)
+- Ground truth block is passed through from input; if absent, agent returns null ground_truth block
 """
 
 import json
@@ -30,8 +33,7 @@ DEFAULT_LAB_REFERENCE_RANGES = {
     "Na_mmol_L": (135, 146),
     "creatinine_mg_dl": {"male": (0.7, 1.3), "female": (0.6, 1.1)},
     "AFP_ng_ml": (0, 20),
-    "CRP_mg_L": (0, 10),
-    "PIVKA_II_mAU_ml": (0, 40)
+    "CRP_mg_L": (0, 10)
 }
 
 
@@ -43,17 +45,158 @@ class ClinicalDataAgent:
         self.ULN_AST = 40.0
         # Load lab ranges (attempt to read XLSX)
         self.lab_ranges = DEFAULT_LAB_REFERENCE_RANGES.copy()
+    
+    def _extract_ground_truth_from_notes(self, clinical_notes: str, max_retries: int = 2) -> Dict[str, Any]:
+        """Extract ground truth clinical scores from clinical notes if mentioned."""
+        if not clinical_notes:
+            return None
+        
+        prompt = f"""You are a medical information extraction system. Extract ONLY explicitly mentioned clinical scores from these notes.
+
+    -----------------------------------
+    CLINICAL NOTES:
+    {clinical_notes}
+    -----------------------------------
+
+    EXTRACTION RULES:
+    1. Extract scores ONLY if explicitly stated in the notes
+    2. Do NOT calculate or infer scores - only extract what is written
+    3. Look for:
+    - Child-Pugh: score (number) and/or class (A/B/C)
+    - MELD: score (number, typically 6-40)
+    - MELD-Na: score (number, typically 6-40)
+    - ALBI: score (number, typically -3.0 to 0.0) and/or grade (1/2/3)
+
+    4. Return ONLY JSON in this exact schema:
+
+    {{
+    "Child_Pugh": {{"score": <number or null>, "class": "<A/B/C or null>"}},
+    "MELD": <number or null>,
+    "MELD_Na": <number or null>,
+    "ALBI": {{"score": <number or null>, "grade": <number or null>}}
+    }}
+
+    If a score is not explicitly mentioned, return null for that field.
+    Do NOT hallucinate or calculate scores."""
+
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": "You are a careful medical extractor. Return only JSON. Extract only explicitly stated values."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.0,
+                    max_tokens=256
+                )
+                try:
+                    text = response.choices[0].message.content
+                except Exception:
+                    try:
+                        text = response.choices[0].text
+                    except Exception:
+                        text = str(response)
+                
+                json_text = self._extract_json_from_text(text)
+                if not json_text:
+                    raise ValueError("No JSON found in LLM response")
+                
+                parsed = json.loads(json_text)
+                
+                # Validate and structure the output
+                result = {
+                    "clinical_scores": {
+                        "Child_Pugh": parsed.get("Child_Pugh"),
+                        "MELD": parsed.get("MELD"),
+                        "MELD_Na": parsed.get("MELD_Na"),
+                        "ALBI": parsed.get("ALBI")
+                    }
+                }
+                
+                # Ensure proper structure for Child_Pugh
+                if result["clinical_scores"]["Child_Pugh"] is None:
+                    result["clinical_scores"]["Child_Pugh"] = {"score": None, "class": None}
+                elif not isinstance(result["clinical_scores"]["Child_Pugh"], dict):
+                    result["clinical_scores"]["Child_Pugh"] = {"score": None, "class": None}
+                
+                # Ensure proper structure for ALBI
+                if result["clinical_scores"]["ALBI"] is None:
+                    result["clinical_scores"]["ALBI"] = {"score": None, "grade": None}
+                elif not isinstance(result["clinical_scores"]["ALBI"], dict):
+                    result["clinical_scores"]["ALBI"] = {"score": None, "grade": None}
+                
+                return result
+                
+            except Exception as e:
+                logger.warning(f"Ground truth extraction attempt {attempt+1} failed: {e}")
+                time.sleep(0.5 * (attempt + 1))
+                continue
+        
+        return None    
 
     # -----------------------
     # Public process function
     # -----------------------
+    # def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
+    #     """
+    #     Process clinical input and return:
+    #     {
+    #       "clinical_summary": {...},
+    #       "agent_metadata": {...},
+    #       "ground_truth": {"clinical_scores": {Child_Pugh, MELD, MELD_Na, ALBI}}
+    #     }
+    #     Ground truth is passed through if present; else nulls are returned.
+    #     """
+    #     clinical_summary = self._initialize_clinical_summary(input_data)
+    #     demographics = input_data.get("demographics", {})
+
+    #     # Extract from notes if available
+    #     notes = input_data.get("clinical", {}).get("clinical_notes_text")
+    #     if notes:
+    #         extracted = self._extract_from_clinical_notes(notes)
+    #         self._merge_extracted_into_summary(clinical_summary, extracted)
+
+    #     # Compute derived scores using baseline labs only
+    #     self._compute_derived_scores(clinical_summary, age=demographics.get("age"))
+
+    #     # Compute lab flags (baseline only)
+    #     clinical_summary["lab_flags"] = self._compute_lab_flags(clinical_summary["labs_baseline"], demographics)
+
+    #     # Generate interpretation (LLM) referencing lab_flags
+    #     clinical_summary["clinical_interpretation"] = self._generate_interpretation(clinical_summary, demographics)
+
+    #     # Confidence
+    #     confidence = self._calculate_confidence(clinical_summary, input_data)
+
+    #     # Ground truth pass-through: if input has ground_truth -> copy exactly, else null block
+    #     input_gt = input_data.get("ground_truth")
+    #     if input_gt and isinstance(input_gt, dict):
+    #         gt_out = input_gt
+    #     else:
+    #         gt_out = {
+    #             "clinical_scores": {
+    #                 "Child_Pugh": None,
+    #                 "MELD": None,
+    #                 "MELD_Na": None,
+    #                 "ALBI": None
+    #             }
+    #         }
+
+    #     return {
+    #         "clinical_summary": clinical_summary,
+    #         "agent_metadata": {"clinical_agent_confidence": round(confidence, 2)},
+    #         "ground_truth": gt_out
+    #     }
     def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process clinical input and return:
         {
-          "clinical_summary": {...},
-          "agent_metadata": {...},
+        "clinical_summary": {...},
+        "agent_metadata": {...},
+        "ground_truth": {"clinical_scores": {Child_Pugh, MELD, MELD_Na, ALBI}}
         }
+        Ground truth is passed through if present; else extracted from notes; else nulls.
         """
         clinical_summary = self._initialize_clinical_summary(input_data)
         demographics = input_data.get("demographics", {})
@@ -76,10 +219,43 @@ class ClinicalDataAgent:
         # Confidence
         confidence = self._calculate_confidence(clinical_summary, input_data)
 
+        # Ground truth handling with 3-tier fallback:
+        # 1. If explicitly provided in input -> use it
+        # 2. Else if clinical notes available -> extract from notes
+        # 3. Else -> return null structure
+        input_gt = input_data.get("ground_truth")
+        if input_gt and isinstance(input_gt, dict):
+            gt_out = input_gt
+        elif notes:
+            # Try to extract ground truth from clinical notes
+            extracted_gt = self._extract_ground_truth_from_notes(notes)
+            if extracted_gt:
+                gt_out = extracted_gt
+            else:
+                # Extraction failed, return null structure
+                gt_out = {
+                    "clinical_scores": {
+                        "Child_Pugh": {"score": None, "class": None},
+                        "MELD": None,
+                        "MELD_Na": None,
+                        "ALBI": {"score": None, "grade": None}
+                    }
+                }
+        else:
+            # No ground truth and no notes -> null structure
+            gt_out = {
+                "clinical_scores": {
+                    "Child_Pugh": {"score": None, "class": None},
+                    "MELD": None,
+                    "MELD_Na": None,
+                    "ALBI": {"score": None, "grade": None}
+                }
+            }
 
         return {
             "clinical_summary": clinical_summary,
             "agent_metadata": {"clinical_agent_confidence": round(confidence, 2)},
+            "ground_truth": gt_out
         }
 
     # -----------------------
@@ -166,7 +342,7 @@ class ClinicalDataAgent:
             "hemoglobin_g_dl", "WBC_k", "platelets_k", "total_bilirubin_mg_dl",
             "direct_bilirubin_mg_dl", "AST_U_L", "ALT_U_L", "ALP_U_L",
             "albumin_g_dl", "INR", "PT_sec", "Na_mmol_L", "creatinine_mg_dl",
-            "AFP_ng_ml", "CRP_mg_L", "PIVKA_II_mAU_ml"
+            "AFP_ng_ml", "CRP_mg_L"
         ]
         if isinstance(labs, dict) and "date" in labs:
             normalized["date"] = labs.get("date")
@@ -557,28 +733,28 @@ DONOT HALLUCINATE DATA."""
         except Exception:
             return {"score": None, "grade": None}
 
-    # def _compute_apri(self, ast: Optional[float], platelets_k: Optional[float], uln_ast: float = None) -> Optional[float]:
-    #     if ast is None or platelets_k is None:
-    #         return None
-    #     try:
-    #         uln = uln_ast if uln_ast is not None else self.ULN_AST
-    #         if platelets_k == 0:
-    #             return None
-    #         apri = ((ast / float(uln)) / float(platelets_k)) * 100.0
-    #         return round(apri, 2)
-    #     except Exception:
-    #         return None
+    def _compute_apri(self, ast: Optional[float], platelets_k: Optional[float], uln_ast: float = None) -> Optional[float]:
+        if ast is None or platelets_k is None:
+            return None
+        try:
+            uln = uln_ast if uln_ast is not None else self.ULN_AST
+            if platelets_k == 0:
+                return None
+            apri = ((ast / float(uln)) / float(platelets_k)) * 100.0
+            return round(apri, 2)
+        except Exception:
+            return None
 
-    # def _compute_fib4(self, age: Optional[int], ast: Optional[float], alt: Optional[float], platelets_k: Optional[float]) -> Optional[float]:
-    #     if any(v is None for v in [age, ast, alt, platelets_k]):
-    #         return None
-    #     try:
-    #         if platelets_k == 0 or alt == 0:
-    #             return None
-    #         fib4 = (float(age) * float(ast)) / (float(platelets_k) * math.sqrt(float(alt)))
-    #         return round(fib4, 2)
-    #     except Exception:
-    #         return None
+    def _compute_fib4(self, age: Optional[int], ast: Optional[float], alt: Optional[float], platelets_k: Optional[float]) -> Optional[float]:
+        if any(v is None for v in [age, ast, alt, platelets_k]):
+            return None
+        try:
+            if platelets_k == 0 or alt == 0:
+                return None
+            fib4 = (float(age) * float(ast)) / (float(platelets_k) * math.sqrt(float(alt)))
+            return round(fib4, 2)
+        except Exception:
+            return None
 
     # -----------------------
     # Lab flags
@@ -589,7 +765,7 @@ DONOT HALLUCINATE DATA."""
         for lab_key in [
             "hemoglobin_g_dl", "WBC_k", "platelets_k", "total_bilirubin_mg_dl",
             "direct_bilirubin_mg_dl", "AST_U_L", "ALT_U_L", "ALP_U_L",
-            "albumin_g_dl", "INR", "PT_sec", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml", "CRP_mg_L", "PIVKA_II_mAU_ml"
+            "albumin_g_dl", "INR", "PT_sec", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml", "CRP_mg_L"
         ]:
             val = baseline_labs.get(lab_key)
             if val is None:
@@ -695,9 +871,6 @@ DONOT HALLUCINATE DATA."""
 #         return f"Patient with {etiology} (Child-Pugh {child_class}, MELD-Na {meld_na}) and ECOG {ecog}. Baseline labs: {abnormal_text}."
 
 
-    # -----------------------
-    # Interpretation (LLM)
-    # -----------------------
     def _generate_interpretation(self, clinical_summary: Dict[str, Any], demographics: Dict[str, Any], max_retries: int = 3) -> str:
         """Generate interpretation + safe descriptive-only trend summary."""
         child = clinical_summary.get("derived_scores", {}).get("Child_Pugh", {})
@@ -722,8 +895,7 @@ DONOT HALLUCINATE DATA."""
             trend_items = []
             trend_fields = [
                 "total_bilirubin_mg_dl", "albumin_g_dl", "INR", "AST_U_L", "ALT_U_L",
-                "platelets_k", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml",
-                "PIVKA_II_mAU_ml"
+                "platelets_k", "Na_mmol_L", "creatinine_mg_dl", "AFP_ng_ml"
             ]
 
             for f in trend_fields:
@@ -852,6 +1024,7 @@ DONOT HALLUCINATE DATA."""
         return round(base_conf, 4)
 
 # -----------------------
+
 # Usage example 
 # -----------------------
 if __name__ == "__main__":
@@ -861,64 +1034,109 @@ if __name__ == "__main__":
     load_dotenv()  # load .env file if present
     api_key = os.getenv("OPENAI_API_KEY")
 
+    # sample_input = {
+    #     "demographics": {"name": "John Doe", "age": 76, "sex": "M", "BMI": 22.4},
+    #     "clinical": {
+    #         "etiology": "HCV-related cirrhosis",
+    #         "symptoms": ["Pain", "Weight loss"],
+    #         "comorbidities": ["Diabetes mellitus", "Hypertension"],
+    #         "ascites": "",
+    #         "encephalopathy": "",
+    #         "ECOG": None,
+    #         "clinical_notes_text": """
+    #         Patient is a 76-year-old male with hepatitis C-related cirrhosis.
+    #         He presents with right upper quadrant pain and unintentional weight loss.
+    #         there is no evidence of ascites on physical exam. Patient is alert and oriented,
+    #         there are no signs of hepatic encephalopathy. Patient is ambulatory and capable 
+    #         of light work.
+    #         """
+    #     },
+    #     "lab_data": {
+    #         "baseline": {
+    #             "hemoglobin_g_dl": 11.3,
+    #             "WBC_k": 7.7,
+    #             "platelets_k": 157,
+    #             "total_bilirubin_mg_dl": 2.0,
+    #             "direct_bilirubin_mg_dl": 1.29,
+    #             "AST_U_L": 123,
+    #             "ALT_U_L": 51.3,
+    #             "ALP_U_L": 229,
+    #             "albumin_g_dl": 3.75,
+    #             "INR": 1.18,
+    #             "PT_sec": 14.0,
+    #             "Na_mmol_L": 126,
+    #             "creatinine_mg_dl": 0.87,
+    #             "AFP_ng_ml": 400000,
+    #             "CRP_mg_L": 112
+    #         },
+    #         "time_series": [
+    #             {
+    #                 "date": "2025-02-01",
+    #                 "hemoglobin_g_dl": 12.4,
+    #                 "WBC_k": 8.6,
+    #                 "platelets_k": 166,
+    #                 "total_bilirubin_mg_dl": 2.2,
+    #                 "direct_bilirubin_mg_dl": 1.8,
+    #                 "AST_U_L": 67,
+    #                 "ALT_U_L": 56,
+    #                 "ALP_U_L": 178,
+    #                 "albumin_g_dl": 3.8,
+    #                 "INR": 1.30,
+    #                 "PT_sec": 13.8,
+    #                 "Na_mmol_L": 132,
+    #                 "creatinine_mg_dl": 0.93,
+    #                 "AFP_ng_ml": 3600,
+    #                 "CRP_mg_L": 68
+    #             }
+    #         ]
+    #     },
+
+        
     sample_input = {
-        "demographics": {"name": "John Doe", "age": 76, "sex": "M", "BMI": 22.4},
-        "clinical": {
-            "etiology": "HCV-related cirrhosis",
-            "symptoms": ["Pain", "Weight loss"],
-            "comorbidities": ["Diabetes mellitus", "Hypertension"],
-            "ascites": "",
-            "encephalopathy": "",
-            "ECOG": None,
-            "clinical_notes_text": """
-            Patient is a 76-year-old male with hepatitis C-related cirrhosis.
-            He presents with right upper quadrant pain and unintentional weight loss.
-            there is no evidence of ascites on physical exam. Patient is alert and oriented,
-            there are no signs of hepatic encephalopathy. Patient is ambulatory and capable 
-            of light work.
-            """
+        "demographics": {
+      "name": "Ashok Kumar",
+      "age": 61,
+      "sex": "M",
+      "BMI": 27.1
+    },
+    "clinical": {
+      "etiology": "HCV-related cirrhosis",
+      "symptoms": [
+        "Decompensated cirrhosis (no ascites)",
+        "No abdominal pain",
+        "No weight loss",
+        "No palpable abdominal mass"
+      ],
+      "comorbidities": [
+        "Type 2 Diabetes Mellitus",
+        "Hypertension"
+      ],
+      "ascites": "Absent",
+      "encephalopathy": "",
+      "ECOG": None,
+      "clinical_notes_text": "61-year-old male with HCV-related cirrhosis and decompensated liver disease. No ascites detected on examination. No abdominal pain, weight loss, or palpable abdominal mass reported. Imaging identified a 4.5 cm hepatic lesion classified as LI-RADS LR-5, consistent with definite hepatocellular carcinoma. Child-Pugh class A (score 6). AFP 33.78 ng/mL and PIVKA-II 1076 mAU/mL. Patient underwent TACE and demonstrated partial response with residual viable tumor (LR-TR-Viable)."
+    },
+    "lab_data": {
+      "baseline": {
+        "hemoglobin_g_dl": 11.4,
+        "WBC_k": 6.25,
+        "platelets_k": 88,
+        "total_bilirubin_mg_dl": 1.2,
+        "direct_bilirubin_mg_dl": 0.38,
+        "AST_U_L": 55,
+        "ALT_U_L": 29,
+        "ALP_U_L": 170.4,
+        "albumin_g_dl": 2.87,
+        "INR": 1.2,
+        "PT_sec": 13.9,
+        "Na_mmol_L": 136,
+        "creatinine_mg_dl": 0.78,
+        "AFP_ng_ml": 33.78,
+        "CRP_mg_L": None,
+        "PIVKA_II_mAU_ml": 1076
+      },
+      "time_series": []
         },
-        "lab_data": {
-            "baseline": {
-                "hemoglobin_g_dl": 11.3,
-                "WBC_k": 7.7,
-                "platelets_k": 157,
-                "total_bilirubin_mg_dl": 2.0,
-                "direct_bilirubin_mg_dl": 1.29,
-                "AST_U_L": 123,
-                "ALT_U_L": 51.3,
-                "ALP_U_L": 229,
-                "albumin_g_dl": 3.75,
-                "INR": 1.18,
-                "PT_sec": 14.0,
-                "Na_mmol_L": 126,
-                "creatinine_mg_dl": 0.87,
-                "AFP_ng_ml": 400000,
-                "CRP_mg_L": 112,
-                "PIVKA_II_mAU_ml": 344
-            },
-            "time_series": [
-                {
-                    "date": "2025-02-01",
-                    "hemoglobin_g_dl": 12.4,
-                    "WBC_k": 8.6,
-                    "platelets_k": 166,
-                    "total_bilirubin_mg_dl": 2.2,
-                    "direct_bilirubin_mg_dl": 1.8,
-                    "AST_U_L": 67,
-                    "ALT_U_L": 56,
-                    "ALP_U_L": 178,
-                    "albumin_g_dl": 3.8,
-                    "INR": 1.30,
-                    "PT_sec": 13.8,
-                    "Na_mmol_L": 132,
-                    "creatinine_mg_dl": 0.93,
-                    "AFP_ng_ml": 3600,
-                    "CRP_mg_L": 68,
-                    "PIVKA_II_mAU_ml": 112
-                }
-            ]
-        }
     }
 
     # Ensure OPENAI_API_KEY set in env or pass here

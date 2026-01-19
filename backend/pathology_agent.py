@@ -3,10 +3,9 @@ import re
 from typing import Dict, Any, Optional
 from openai import OpenAI
 import os
+from dotenv import load_dotenv
 
-# =================================================================
-#  PATHOLOGY & MOLECULAR EXTRACTION AGENT (GPT-4o-mini + GPT-4o)
-# =================================================================
+load_dotenv()
 
 class PathologyMolecularAgent:
     """
@@ -17,11 +16,11 @@ class PathologyMolecularAgent:
     def __init__(self, openai_api_key: Optional[str] = None):
         """
         Initialize the agent with OpenAI API.
-        Uses GPT-4o-mini for extraction/filling and GPT-4o for interpretation.
+        Uses GPT-4o-mini for extraction and GPT-4o for interpretation.
         """
         self.client = OpenAI(api_key=openai_api_key or os.getenv("OPENAI_API_KEY"))
-        self.extract_model = "gpt-4o-mini"   # optimized for deterministic structured JSON extraction
-        self.interpret_model = "gpt-4o"      # high-quality summarization
+        self.extract_model = "gpt-4o-mini"
+        self.interpret_model = "gpt-4o"
 
     # -----------------------------------------------------------------
     #  PUBLIC ENTRY POINT
@@ -29,10 +28,7 @@ class PathologyMolecularAgent:
     def process(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Main processing pipeline for pathology and molecular extraction.
-        input_data: Schema 2.5 input
-        Returns Schema 1 pathology_summary JSON.
         """
-
         pathology_data = input_data.get("pathology", {})
         biopsy_performed = pathology_data.get("biopsy_performed", False)
 
@@ -44,38 +40,40 @@ class PathologyMolecularAgent:
         pathology_text = pathology_data.get("pathology_report_text", "")
         molecular_text = pathology_data.get("molecular_profile_text", "")
 
-        # ----- Initialize object with structured data -----
+        # Initialize with structured data
         pathology_summary = self._initialize_pathology_summary(
             biopsy_markers, pathology_text, molecular_text
         )
 
-        # ----- Apply regex-based extraction before LLM (cheap, fast) -----
+        # Regex-based extraction (fast, cheap)
         self._regex_extract_histology(pathology_text, pathology_summary["histology"])
 
-        # ----- Run LLM extraction to fill missing fields (using GPT-4o-mini) -----
+        # LLM extraction to fill missing fields
         llm_extracted = self._llm_extract_all(
             pathology_text=pathology_text,
             molecular_text=molecular_text,
             existing=pathology_summary
         )
 
-        # Merge LLM extraction into summary
+        # Merge LLM extraction
         self._merge_llm_extraction(pathology_summary, llm_extracted)
 
-        # ----- Store source texts -----
+        # Store source texts
         pathology_summary["source_text"] = {
             "pathology_report_text": pathology_text,
             "molecular_profile_text": molecular_text
         }
 
-        # ----- Interpretation using GPT-4o -----
+        # Interpretation
         pathology_summary["pathology_interpretation"] = \
             self._generate_interpretation(pathology_summary)
 
-        # ----- Confidence -----
-        pathology_summary["agent_metadata"] = {"pathology_agent_confidence":\
-            self._calculate_confidence(pathology_summary, biopsy_markers,
-                                       pathology_text, molecular_text)}
+        # Confidence
+        pathology_summary["agent_metadata"] = {
+            "pathology_agent_confidence": self._calculate_confidence(
+                pathology_summary, biopsy_markers, pathology_text, molecular_text
+            )
+        }
 
         return {"pathology_summary": pathology_summary}
 
@@ -148,7 +146,7 @@ class PathologyMolecularAgent:
             },
             "source_text": {},
             "pathology_interpretation": "",
-            "agent_metadata": {"pathology_agent_confidence":0.0}
+            "agent_metadata": {"pathology_agent_confidence": 0.0}
         }
 
     # =================================================================
@@ -221,48 +219,44 @@ class PathologyMolecularAgent:
     def _llm_extract_all(self, pathology_text, molecular_text, existing):
         """
         Single GPT-4o-mini call for histology + molecular extraction.
-        No response_format (not supported).
-        Enforces JSON via strict instructions + regex cleanup fallback.
         """
+        extraction_prompt = f"""You are an expert in pathology & molecular extraction. 
+Extract ONLY explicitly stated values from the following texts.
+Return ONLY a JSON object with no markdown, no explanations.
 
-        extraction_prompt = f"""
-    You are an expert in pathology & molecular extraction. 
-    Extract ONLY explicitly stated values from the following texts.
-    Return ONLY a JSON object.
+PATHOLOGY REPORT:
+{pathology_text or "Not provided"}
 
-    PATHOLOGY REPORT:
-    {pathology_text}
+MOLECULAR REPORT:
+{molecular_text or "Not provided"}
 
-    MOLECULAR REPORT:
-    {molecular_text}
+Return JSON exactly in this format:
 
-    Return JSON exactly in this format:
+{{
+  "diagnosis": "string or null",
+  "differentiation": "Well|Moderately differentiated|Poor|Undifferentiated|null",
+  "fibrosis_stage": "F0|F1|F2|F3|F4|null",
+  "steatosis_percent": number or null,
+  "steatosis_grade": 0|1|2|3|null,
+  "lobular_inflammation": 0|1|2|3|null,
+  "ballooning": 0|1|2|null,
+  "vascular_invasion": true|false|null,
+  
+  "TERT_promoter_mutation": "positive|negative|not_reported",
+  "TP53_mutation": "positive|negative|not_reported",
+  "CTNNB1_mutation": "positive|negative|not_reported",
+  "MSI_status": "MSI-H|MSI-L|MSS|not_reported",
+  "PDL1_IHC": "string or not_reported",
+  "TMB": "string or not_reported",
+  
+  "notes": "brief extraction notes"
+}}
 
-    {{
-    "diagnosis": "string or null",
-    "differentiation": "Well|Moderately differentiated|Poor|Undifferentiated|null",
-    "fibrosis_stage": "F0|F1|F2|F3|F4|null",
-    "steatosis_percent": number or null,
-    "steatosis_grade": 0|1|2|3|null,
-    "lobular_inflammation": 0|1|2|3|null,
-    "ballooning": 0|1|2|null,
-    "vascular_invasion": true|false|null,
-
-    "TERT_promoter_mutation": "positive|negative|not_reported",
-    "TP53_mutation": "positive|negative|not_reported",
-    "CTNNB1_mutation": "positive|negative|not_reported",
-    "MSI_status": "MSI-H|MSI-L|MSS|not_reported",
-    "PDL1_IHC": "string or not_reported",
-    "TMB": "string or not_reported",
-
-    "notes": "extraction notes"
-    }}
-
-    Rules:
-    - ONLY return JSON
-    - If a value is not explicitly mentioned, return null or "not_reported"
-    - Do NOT infer.
-    """
+Rules:
+- ONLY return valid JSON
+- If a value is not explicitly mentioned, return null or "not_reported"
+- Do NOT infer or assume values
+- Extract numbers and grades exactly as stated"""
 
         try:
             resp = self.client.chat.completions.create(
@@ -274,7 +268,10 @@ class PathologyMolecularAgent:
 
             raw = resp.choices[0].message.content.strip()
 
-            # --- Safety: extract JSON using regex ---
+            # Remove markdown code blocks if present
+            raw = raw.replace("```json", "").replace("```", "")
+
+            # Extract JSON using regex
             json_match = re.search(r"\{[\s\S]*\}", raw)
             if not json_match:
                 raise ValueError("No JSON found in LLM output")
@@ -283,9 +280,8 @@ class PathologyMolecularAgent:
             return json.loads(json_str)
 
         except Exception as e:
-            print("Extraction error:", e)
+            print(f"LLM extraction error: {e}")
             return {}
-
 
     # =================================================================
     #  MERGE EXTRACTED DATA
@@ -298,7 +294,7 @@ class PathologyMolecularAgent:
         hist = summary["histology"]
         mol = summary["molecular_profile"]
 
-        # Merge histology
+        # Merge histology - only fill if currently None
         for key in ["diagnosis", "differentiation", "fibrosis_stage",
                     "steatosis_percent", "steatosis_grade",
                     "lobular_inflammation", "ballooning",
@@ -306,7 +302,7 @@ class PathologyMolecularAgent:
             if llm.get(key) is not None and hist.get(key) is None:
                 hist[key] = llm[key]
 
-        # Merge molecular
+        # Merge molecular - only if not "not_reported"
         for key in mol:
             if key in llm and llm[key] != "not_reported":
                 mol[key] = llm[key]
@@ -317,27 +313,26 @@ class PathologyMolecularAgent:
     #  INTERPRETATION (GPT-4o)
     # =================================================================
     def _generate_interpretation(self, summary):
-        prompt = [{
-            "role": "user",
-            "content": f"""
-Summarize pathology in 2–3 sentences for tumor board.
-Avoid 'not_reported' markers.
+        prompt = f"""Summarize the pathology findings in 2-3 clinical sentences for a tumor board presentation.
+Focus on key diagnostic and prognostic findings. Avoid mentioning "not_reported" fields.
 
+Pathology Data:
 {json.dumps(summary, indent=2)}
-"""
-        }]
+
+Provide a concise clinical summary."""
 
         try:
             resp = self.client.chat.completions.create(
                 model=self.interpret_model,
-                messages=prompt,
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
-                max_tokens=200,
+                max_tokens=200
             )
             return resp.choices[0].message.content.strip()
 
-        except Exception:
-            return "Pathology summarized."
+        except Exception as e:
+            print(f"Interpretation error: {e}")
+            return "Pathology findings summarized."
 
     # =================================================================
     #  CONFIDENCE
@@ -345,19 +340,23 @@ Avoid 'not_reported' markers.
     def _calculate_confidence(self, summary, markers, p_text, m_text):
         conf = 0.5
 
-        structured = sum(1 for k in ["differentiation","fibrosis_stage","vascular_invasion",
-                                     "steatosis_percent","steatosis_grade"]
+        # Bonus for structured input
+        structured = sum(1 for k in ["differentiation", "fibrosis_stage", "vascular_invasion",
+                                     "steatosis_percent", "steatosis_grade"]
                          if markers.get(k) is not None)
         conf += structured * 0.08
 
+        # Bonus for text reports
         if p_text and len(p_text) > 80:
             conf += 0.1
 
+        # Critical fields present
         hist = summary["histology"]
         critical = ["diagnosis", "differentiation", "fibrosis_stage", "vascular_invasion"]
         present = sum(1 for k in critical if hist.get(k) is not None)
         conf += present * 0.05
 
+        # Molecular data
         mol = summary["molecular_profile"]
         non_missing = sum(1 for v in mol.values() if v != "not_reported")
         conf += non_missing * 0.02
@@ -366,90 +365,53 @@ Avoid 'not_reported' markers.
 
 
 # =================================================================
-#  USAGE EXAMPLE (FULLY UPDATED FOR GPT-4o-MINI)
+#  USAGE EXAMPLE
 # =================================================================
 
 def main():
-    # Try to load from environment if dotenv is available
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except ImportError:
-        pass
+    agent = PathologyMolecularAgent()
     
-    import os
-    api_key = os.getenv("OPENAI_API_KEY") or "YOUR_API_KEY_HERE"
-    agent = PathologyMolecularAgent(openai_api_key=api_key)
-
-    # ----------------- Example 1 -----------------
+    # Example 1: No biopsy
     sample_input_1 = {
         "pathology": {
-            "biopsy_performed": True,
-            "pathology_report_text": """
-            Core needle biopsy of liver mass:
-            Diagnosis: Hepatocellular carcinoma, moderately differentiated.
-            Cirrhosis present (F4).
-            Macrovesicular steatosis ~35%.
-            No vascular invasion identified.
-            balloning: 1
-            """,
-            "molecular_profile_text": """
-            TERT promoter mutation detected.
-            TP53 wild-type.
-            CTNNB1 wild-type.
-            MSI stable (MSS).
-            PD-L1 CPS 3.
-            TMB 2 muts/Mb.
-            """,
+            "biopsy_performed": False,
+            "pathology_report_text": None,
+            "molecular_profile_text": None,
             "files": {},
             "biopsy_markers": {
-                "differentiation": "Moderate",
-                "vascular_invasion": False,
-                "steatosis_percent": 35,
-                "lobular_inflammation": 1,
-                "fibrosis_stage": "F4"
+                "differentiation": None,
+                "vascular_invasion": None,
+                "steatosis_percent": None,
+                "lobular_inflammation": None,
+                "fibrosis_stage": None
             }
         }
     }
 
-    print("\n================= EXAMPLE 1 =================")
+    print("\n================= EXAMPLE 1 (No Biopsy) =================")
     result_1 = agent.process(sample_input_1)
     print(json.dumps(result_1, indent=2))
-
-    # ----------------- Example 2 -----------------
+    
+    # Example 2: With biopsy and text reports
     sample_input_2 = {
         "pathology": {
             "biopsy_performed": True,
-            "pathology_report_text": """
-            Moderately differentiated HCC.
-            Bridging fibrosis present.
-            Mild steatosis.
-            No vascular invasion.
-            """,
-            "molecular_profile_text": "",
+            "pathology_report_text": "Liver biopsy shows hepatocellular carcinoma, moderately differentiated. Background cirrhotic liver with microvascular invasion present. Steatosis estimated at 15%.",
+            "molecular_profile_text": "NGS panel shows TERT promoter mutation (C228T). TP53 wild-type. MSI-stable.",
             "files": {},
-            "biopsy_markers": {}
+            "biopsy_markers": {
+                "differentiation": "Moderate",
+                "vascular_invasion": True,
+                "steatosis_percent": None,
+                "lobular_inflammation": None,
+                "fibrosis_stage": "F4"
+            }
         }
     }
-
-    print("\n================= EXAMPLE 2 =================")
+    
+    print("\n================= EXAMPLE 2 (With Biopsy) =================")
     result_2 = agent.process(sample_input_2)
     print(json.dumps(result_2, indent=2))
-
-    # ----------------- Example 3 -----------------
-    sample_input_3 = {
-        "pathology": {
-            "biopsy_performed": False,
-            "pathology_report_text": "",
-            "molecular_profile_text": "",
-            "files": {},
-            "biopsy_markers": {}
-        }
-    }
-
-    print("\n================= EXAMPLE 3 =================")
-    result_3 = agent.process(sample_input_3)
-    print(json.dumps(result_3, indent=2))
 
 
 if __name__ == "__main__":

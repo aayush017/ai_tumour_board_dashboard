@@ -1,0 +1,122 @@
+{
+  "timestamp": "2026-01-13T15:14:59.567209",
+  "patient_summary": {
+    "bclc_stage": "C (Performance Status Driven)",
+    "bclc_rationale": "ECOG PS 1 categorizes as Stage C. \u26a0\ufe0f CRITICAL CLINICAL JUDGMENT NEEDED: Assess if PS impairment is due to HCC (\u2192 Stage C systemic therapy) or comorbidities (\u2192 may still be candidate for locoregional therapy as Stage A/B).",
+    "bclc_substage_detail": "If PS 1 is from HCC: Systemic therapy (Atezolizumab-Bevacizumab). If PS 1 is from comorbidities and liver function preserved: May still be candidate for locoregional therapy (Stage A/B). Requires multidisciplinary assessment.",
+    "treatment_intent": "SYSTEMIC",
+    "child_pugh": {
+      "score": 7,
+      "class": "B",
+      "components": {
+        "bilirubin": 2,
+        "albumin": 2,
+        "INR": 1,
+        "ascites": 1,
+        "encephalopathy": 1
+      }
+    },
+    "tumor_burden": {
+      "count": 1,
+      "max_size_cm": 4.2,
+      "lesions": [
+        "4.2cm segment None (LI-RADS LR-4)"
+      ],
+      "distribution": "unilobar",
+      "segments": [
+        "unknown"
+      ]
+    },
+    "ecog": 1,
+    "compensation_status": "DECOMPENSATED"
+  },
+  "consensus_plan": "**PRIMARY TREATMENT (per INASL for BCLC C (Performance Status Driven)):**\n\n**INASL GUIDELINE SUPPORT:**\n- **Hepatologist:** According to INASL guidelines, systemic therapy with Atezolizumab-Bevacizumab is recommended for patients with BCLC C stage HCC, particularly when the performance status is driven by the tumor burden rather than comorbidities. This aligns with the patient's ECOG status of 1 and elevated AFP indicating significant tumor burden. [INASL SOURCE 1]\n- **Oncologist:** Reinforces the use of Atezolizumab-Bevacizumab as the first-line systemic therapy, with caution advised for patients with cardiovascular disorders. [INASL SOURCE 3]\n\n**RATIONALE:**\nThe patient is classified as BCLC C due to performance status driven by tumor burden, as indicated by elevated AFP levels. The INASL guidelines recommend systemic therapy with Atezolizumab-Bevacizumab for such cases. The patient's liver function, while decompensated, is still within a range that allows for systemic therapy, and there are no contraindications related to cardiovascular conditions.\n\n**ALTERNATIVES (if primary contraindicated per INASL):**\n- If Atezolizumab-Bevacizumab is contraindicated due to cardiovascular issues or other factors, alternative systemic therapies such as Sorafenib or Lenvatinib may be considered, as per INASL guidelines.\n\n**PREREQUISITES:**\n- Comprehensive cardiovascular assessment to rule out contraindications for Bevacizumab.\n- Baseline imaging and laboratory tests to monitor treatment response and potential side effects.\n\n**MONITORING (per INASL):**\n- Regular follow-up every 6-8 weeks to assess treatment response via imaging and AFP levels.\n- Monitor for adverse effects related to systemic therapy, particularly hypertension and proteinuria.\n\n**RED FLAGS:**\n- Worsening liver function or signs of acute decompensation.\n- Significant cardiovascular events or symptoms suggestive of Bevacizumab-related complications.\n\n**CONSENSUS STATUS:**\n- Hepatologist-led decision with agreement from the oncologist, based on INASL guidelines. No noted disagreements among specialists.\n\nThe primary treatment recommendation aligns with the BCLC C classification, focusing on systemic therapy as per INASL guidelines, with Atezolizumab-Bevacizumab being the preferred first-line option. The decision is based on the patient's performance status and tumor characteristics, with careful consideration of potential contraindications.",
+  "strategy_plan": {
+    "bclc_stage": "C (Performance Status Driven)",
+    "bclc_rationale": "ECOG PS 1 categorizes as Stage C. \u26a0\ufe0f CRITICAL CLINICAL JUDGMENT NEEDED: Assess if PS impairment is due to HCC (\u2192 Stage C systemic therapy) or comorbidities (\u2192 may still be candidate for locoregional therapy as Stage A/B).",
+    "bclc_substage_detail": "If PS 1 is from HCC: Systemic therapy (Atezolizumab-Bevacizumab). If PS 1 is from comorbidities and liver function preserved: May still be candidate for locoregional therapy (Stage A/B). Requires multidisciplinary assessment.",
+    "clinical_impression": "Patient with decompensated cirrhosis and HCC, ECOG PS 1. Elevated AFP suggests significant tumor burden. Requires assessment to determine if PS impairment is due to HCC or comorbidities.",
+    "treatment_intent": "SYSTEMIC",
+    "specialist_instructions": [
+      {
+        "specialist_role": "Hepatologist",
+        "priority": "PRIMARY",
+        "focus_area": "Palliative care, symptom management",
+        "specific_questions": [
+          "Is the patient's performance status impairment primarily due to HCC?",
+          "What are the best supportive care options to manage symptoms?"
+        ],
+        "guidance_context": "Hepatologist is the lead decision maker for managing liver-related complications and coordinating care for decompensated cirrhosis."
+      },
+      {
+        "specialist_role": "Oncologist",
+        "priority": "SECONDARY",
+        "focus_area": "Best supportive care options",
+        "specific_questions": [
+          "Is systemic therapy with Atezolizumab-Bevacizumab appropriate given the patient's liver function and performance status?",
+          "What are the potential benefits and risks of systemic therapy in this context?"
+        ],
+        "guidance_context": "Oncologist is needed to evaluate the appropriateness of systemic therapy and provide expertise on cancer management."
+      }
+    ],
+    "orchestrator_guidance": "Coordinate between hepatologist and oncologist to assess the cause of performance status impairment and determine the most appropriate treatment strategy. Ensure multidisciplinary discussion to evaluate potential for locoregional therapy if comorbidities are the primary cause of PS impairment.",
+    "critical_checks": [
+      "Assess if performance status impairment is due to HCC or comorbidities.",
+      "Evaluate liver function and potential for locoregional therapy.",
+      "Consider systemic therapy options and their appropriateness."
+    ]
+  },
+  "specialist_results": {
+    "Hepatologist": {
+      "specialist": "Hepatology (Lead Decision Maker)",
+      "assessment": "**INASL GUIDELINE EVIDENCE:**\n\nAccording to INASL [SOURCE 1]: \"Downstaging HCC before transplantation has demonstrated improvements in patient outcomes and a reduction in recurrence risk following transplantation... INASL recommends that patients who exceed the UCSF criteria but have good liver function, no vascular invasion, and no distant spread may be considered for transplantation if defined morphological and biological endpoints of successful downstaging are achieved.\" This indicates that downstaging therapies such as TACE or TARE should be considered to potentially improve transplant eligibility and outcomes.\n\n**LIVER FUNCTION ASSESSMENT:**\n\nThe patient's liver function is assessed as Child-Pugh B7 and MELD 11, with a moderate risk of portal hypertension indicated by thrombocytopenia (Plt 140.0K). These scores reflect decompensated cirrhosis, which impacts treatment options and transplant eligibility.\n\n**TREATMENT TOLERANCE:**\n\nBased on the INASL guideline, the patient may tolerate locoregional therapies such as TACE, which is widely utilized for downstaging. Systemic therapies are also an option, with first-line treatments including Atezolizumab-Bevacizumab, Lenvatinib, Sorafenib, Tremelimumab-Durvalumab, and Durvalumab [SOURCE 3]. However, the choice of systemic therapy should consider contraindications such as cardiovascular disorders or untreated high-risk esophageal varices.\n\n**TRANSPLANT ELIGIBILITY:**\n\nThe patient is within the Milan and UCSF criteria for liver transplantation (1 lesion, max 4.2 cm). According to INASL [SOURCE 1], patients within these criteria are eligible for transplantation, and downstaging therapies should be considered to optimize outcomes.\n\n**PORTAL HYPERTENSION CONTRAINDICATIONS:**\n\nThe INASL guideline does not explicitly address specific contraindications related to portal hypertension for the treatments discussed. However, the presence of moderate portal hypertension should be considered when evaluating the risk of bleeding and other complications associated with certain therapies.\n\n**OPTIMIZATION NEEDED:**\n\nPre-treatment interventions may include managing portal hypertension and optimizing liver function to improve the patient's overall condition before initiating downstaging or systemic therapies. The INASL guideline suggests that an aggressive approach to locoregional therapies combined with appropriate patient selection offers the most effective downstaging results [SOURCE 1].\n\n**LEAD HEPATOLOGIST RECOMMENDATION (per INASL):**\n\nAs the LEAD decision maker, the primary first-line treatment approach per INASL Puri 3 for BCLC C (Performance Status Driven) would be to consider locoregional therapy such as TACE for downstaging, given the patient's eligibility for transplantation within the Milan and UCSF criteria. Concurrently, systemic therapy with Atezolizumab-Bevacizumab could be considered, provided there are no contraindications related to cardiovascular health or esophageal varices [SOURCE 3].\n\n**CONFIDENCE NOTE:**\n\nThe INASL guideline does not explicitly address the management of portal hypertension in the context of specific treatments, nor does it provide detailed guidance on the extent or duration of AFP reduction required before considering liver transplantation. These areas may require further clinical judgment and multidisciplinary discussion.",
+      "recommendations": [
+        "WITHIN MILAN & UCSF - Transplant eligible (1 lesion(s), max 4.2cm)",
+        "Child-Pugh B",
+        "Portal HTN: MODERATE"
+      ],
+      "confidence": 1.0,
+      "evidence_quality": "Medium",
+      "critical_flags": [
+        "Elevated AFP (450 ng/mL) - significant tumor burden",
+        "Thrombocytopenia (140.0K) - suggests portal hypertension",
+        "Mild anemia (Hgb 11.5 g/dL)",
+        "Hyponatremia (132.0 mmol/L)",
+        "Child-Pugh B - decompensated, limited treatment options",
+        "MODERATE portal hypertension risk - resection contraindicated"
+      ]
+    },
+    "Oncologist": {
+      "specialist": "Medical Oncology",
+      "assessment": "**INASL GUIDELINE EVIDENCE:**\nAccording to INASL [SOURCE 3]: \"First-line: Atezolizumab-Bevacizumab... Avoid Bevacizumab in patients with cardiovascular disorders (such as cerebrovascular accident, acute myocardial infarction or unstable angina, congestive heart failure with New York Heart Association class \u22652, accelerated hypertension, peripheral arterial thrombosis, significant arrhythmias), recent bleeding (such as gastrointestinal bleeding, hemoptysis, etc.); and untreated high-risk esophageal varices.\"\n\n**INTERPRETATION:**\nThis means that Atezolizumab-Bevacizumab is a recommended first-line systemic therapy option for patients with advanced HCC. However, Bevacizumab should be avoided in patients with certain cardiovascular conditions or recent bleeding events, including untreated high-risk esophageal varices.\n\n**SYSTEMIC THERAPY INDICATION (per INASL):**\nFor BCLC C (Performance Status Driven), systemic therapy is a PRIMARY option per INASL.\n\n**PRIMARY RECOMMENDATION (if indicated per INASL):**\nAtezolizumab 1200mg IV + Bevacizumab 15mg/kg q3w per INASL.\n\n**ALTERNATIVES (if contraindicated per INASL):**\nIf Atezolizumab-Bevacizumab is contraindicated, alternatives include Lenvatinib, Sorafenib, or Durvalumab-Tremelimumab as per INASL guidelines.\n\n**CONTRAINDICATIONS (per INASL):**\nThe patient has decompensated cirrhosis (Child-Pugh B7), which may increase the risk of complications with Bevacizumab, especially if there are untreated high-risk esophageal varices. The guideline does not specify the presence of such varices, but caution is advised.\n\n**MONITORING (per INASL):**\nThe INASL guideline does not clearly specify the exact imaging/labs schedule for monitoring, but typically, regular imaging and lab tests would be used to assess treatment response and liver function.\n\n**RED FLAGS:**\nPotential urgent concerns include the risk of bleeding due to portal hypertension and the patient's decompensated liver status, which may complicate systemic therapy.\n\n**CONFIDENCE NOTE:**\nThe INASL guideline does not address specific monitoring schedules or detailed contraindications related to the patient's current liver function status beyond general recommendations.",
+      "recommendations": [
+        "According to INASL [SOURCE 3]: \"First-line: Atezolizumab-Bevacizumab... Avoid Bevacizumab in patients with cardiovascular disorders (such as cerebrovascular accident, acute myocardial infarction or unstable angina, congestive heart failure with New York Heart Association class \u22652, accelerated hypertension, peripheral arterial thrombosis, significant arrhythmias), recent bleeding (such as gastrointestinal bleeding, hemoptysis, etc.); and untreated high-risk esophageal varices.\"",
+        "This means that Atezolizumab-Bevacizumab is a recommended first-line systemic therapy option for patients with advanced HCC. However, Bevacizumab should be avoided in patients with certain cardiovascular conditions or recent bleeding events, including untreated high-risk esophageal varices.",
+        "For BCLC C (Performance Status Driven), systemic therapy is a PRIMARY option per INASL.",
+        "**PRIMARY RECOMMENDATION (if indicated per INASL):**",
+        "Atezolizumab 1200mg IV + Bevacizumab 15mg/kg q3w per INASL."
+      ],
+      "confidence": 1.0,
+      "evidence_quality": "Medium",
+      "critical_flags": [
+        "Elevated AFP (450 ng/mL) - significant tumor burden",
+        "Thrombocytopenia (140.0K) - suggests portal hypertension",
+        "Mild anemia (Hgb 11.5 g/dL)",
+        "Hyponatremia (132.0 mmol/L)",
+        "Decompensated cirrhosis (Child-Pugh B) - limited systemic therapy tolerance"
+      ]
+    }
+  },
+  "critical_flags": [
+    "Mild anemia (Hgb 11.5 g/dL)",
+    "Thrombocytopenia (140.0K) - suggests portal hypertension",
+    "Elevated AFP (450 ng/mL) - significant tumor burden",
+    "MODERATE portal hypertension risk - resection contraindicated",
+    "Hyponatremia (132.0 mmol/L)",
+    "Decompensated cirrhosis (Child-Pugh B) - limited systemic therapy tolerance",
+    "Child-Pugh B - decompensated, limited treatment options"
+  ],
+  "status": "complete",
+  "guideline_version": "INASL Puri 3",
+  "processing_time_seconds": 47.074283
+}

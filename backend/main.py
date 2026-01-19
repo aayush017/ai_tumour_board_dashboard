@@ -610,13 +610,14 @@ def generate_agent_summary(
     user_ctx=Depends(require_user),
 ):
     """
-    Generate comprehensive agent summary using all four agents:
-    - Radiology Agent
-    - Clinical Data Agent  
-    - Pathology Agent
-    - Tumor Board Summary Agent
+    Generate comprehensive agent summary using sequential processing:
+    1. Processes three agents (Radiology, Clinical, Pathology)
+    2. Formats output in structured format (similar to sampleOUTPUTpatient.json)
+    3. Feeds to HCC Tumor Board System (if configured via INASL_PDF_PATH)
+    4. Processes Tumor Board Summary Agent
+    5. Returns all outputs including individual agent responses, tumor board analysis, and summary
     
-    Returns combined outputs with a culminated plan of action.
+    Optional: Configure INASL_PDF_PATH environment variable to enable HCC tumor board system analysis.
     """
     patient = db.query(PatientEntity).filter(PatientEntity.case_id == case_id).first()
     if not patient:
@@ -637,7 +638,12 @@ def generate_agent_summary(
                 detail="OPENAI_API_KEY is not configured on the server."
             )
         
-        orchestrator = AgentOrchestrator(openai_api_key=api_key)
+        # Optional: Pass PDF path for tumor board system if configured
+        tumor_board_pdf_path = os.getenv("INASL_PDF_PATH")
+        orchestrator = AgentOrchestrator(
+            openai_api_key=api_key,
+            tumor_board_pdf_path=tumor_board_pdf_path
+        )
         result = orchestrator.process_all(patient_context)
         return result
     except Exception as exc:
